@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Login | The 52 Club</title>
+    <link rel="icon" href="/static/club/logo.png" type="image/png">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Playfair+Display:ital,wght@0,700;0,900;1,700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/club/style.css">
+    <style>
+        body {
+            background-color: #000000;
+            color: #ffffff;
+            font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+            box-sizing: border-box;
+            margin: 0;
+        }
+
+        .login-card {
+            width: 100%;
+            max-width: 420px;
+            background: #0d0d0d;
+            border: 1px solid #222222;
+            border-radius: 16px;
+            padding: 40px 32px;
+            box-shadow: 0 16px 40px rgba(0, 0, 0, 0.8);
+            text-align: center;
+        }
+
+        .login-logo {
+            height: 48px;
+            width: auto;
+            margin-bottom: 24px;
+        }
+
+        .login-title {
+            font-size: 20px;
+            font-weight: 800;
+            letter-spacing: 1.5px;
+            text-transform: uppercase;
+            margin: 0 0 8px 0;
+            color: #ffffff;
+        }
+
+        .login-subtitle {
+            font-size: 13px;
+            color: #888888;
+            margin: 0 0 28px 0;
+        }
+
+        .form-group {
+            text-align: left;
+            margin-bottom: 20px;
+        }
+
+        .form-label {
+            display: block;
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: 1.5px;
+            text-transform: uppercase;
+            color: #aaaaaa;
+            margin-bottom: 8px;
+        }
+
+        .form-input {
+            width: 100%;
+            background: #161616;
+            border: 1px solid #282828;
+            border-radius: 8px;
+            padding: 14px 16px;
+            color: #ffffff;
+            font-size: 14px;
+            box-sizing: border-box;
+            outline: none;
+            transition: border-color 0.2s ease, background 0.2s ease;
+        }
+
+        .form-input:focus {
+            border-color: #ffffff;
+            background: #1c1c1c;
+        }
+
+        .btn-submit {
+            width: 100%;
+            background: #ffffff;
+            color: #000000;
+            border: none;
+            border-radius: 8px;
+            padding: 15px;
+            font-size: 13px;
+            font-weight: 800;
+            letter-spacing: 1.5px;
+            text-transform: uppercase;
+            cursor: pointer;
+            margin-top: 8px;
+            transition: opacity 0.2s ease, transform 0.1s ease;
+        }
+
+        .btn-submit:hover {
+            opacity: 0.9;
+        }
+
+        .btn-submit:active {
+            transform: scale(0.99);
+        }
+
+        .error-badge {
+            background: rgba(239, 68, 68, 0.15);
+            border: 1px solid #ef4444;
+            color: #fca5a5;
+            padding: 10px 14px;
+            border-radius: 8px;
+            font-size: 13px;
+            margin-bottom: 20px;
+            text-align: left;
+        }
+
+        .credentials-hint {
+            margin-top: 24px;
+            padding: 12px 14px;
+            background: #141414;
+            border-radius: 8px;
+            border: 1px solid #222222;
+            font-size: 12px;
+            color: #777777;
+            text-align: left;
+        }
+        .credentials-hint strong {
+            color: #cccccc;
+        }
+
+        .back-link {
+            display: inline-block;
+            margin-top: 24px;
+            color: #666666;
+            font-size: 12px;
+            text-decoration: none;
+            transition: color 0.2s ease;
+        }
+
+        .back-link:hover {
+            color: #ffffff;
+        }
+    </style>
+</head>
+<body>
+
+    <script>
+        // If already authorized in local/session storage, navigate directly
+        if (localStorage.getItem('the52_admin_auth') === 'authenticated' || sessionStorage.getItem('the52_admin_auth') === 'authenticated') {
+            window.location.replace('/admin?auth=1');
+        }
+    </script>
+
+    <div class="login-card">
+        <img src="/static/club/logo.png" alt="The 52 Club" class="login-logo">
+        <h1 class="login-title">Admin Dashboard</h1>
+        <p class="login-subtitle">Sign in to manage registrations, events & settings</p>
+
+        <div id="clientErrorBadge" class="error-badge" style="display: <%= (typeof error !== 'undefined' && error) ? 'block' : 'none' %>;">
+            <%= (typeof error !== 'undefined' && error) ? error : '' %>
+        </div>
+
+        <form id="loginForm" action="/admin/login" method="POST">
+            <div class="form-group">
+                <label class="form-label" for="username">Username</label>
+                <input type="text" id="username" name="username" class="form-input" value="admin" required autocomplete="username">
+            </div>
+
+            <div class="form-group">
+                <label class="form-label" for="password">Password</label>
+                <input type="password" id="password" name="password" class="form-input" value="the52club" required autocomplete="current-password">
+            </div>
+
+            <button type="submit" id="submitBtn" class="btn-submit">Sign In</button>
+        </form>
+
+        <div class="credentials-hint">
+            <strong>Default Credentials:</strong><br>
+            Username: <code>admin</code><br>
+            Password: <code>the52club</code>
+        </div>
+
+        <div>
+            <a href="/" class="back-link">Return to The 52 Club Website</a>
+        </div>
+    </div>
+
+    <script>
+        document.getElementById('loginForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            const submitBtn = document.getElementById('submitBtn');
+            const errorBadge = document.getElementById('clientErrorBadge');
+            const username = document.getElementById('username').value.trim();
+            const password = document.getElementById('password').value.trim();
+
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Signing In...';
+            errorBadge.style.display = 'none';
+
+            try {
+                const res = await fetch('/admin/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
+                    },
+                    body: JSON.stringify({ username, password })
+                });
+
+                const data = await res.json();
+
+                if (data.success) {
+                    localStorage.setItem('the52_admin_auth', 'authenticated');
+                    sessionStorage.setItem('the52_admin_auth', 'authenticated');
+                    window.location.replace(data.redirect || '/admin?auth=1');
+                } else {
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = 'Sign In';
+                    errorBadge.textContent = data.error || 'Invalid credentials.';
+                    errorBadge.style.display = 'block';
+                }
+            } catch (err) {
+                // Fallback to native form post
+                this.submit();
+            }
+        });
+    </script>
+
+</body>
+</html>

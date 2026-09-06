@@ -1,0 +1,111 @@
+{
+  "events": [
+    {
+      "id": 1,
+      "event_number": "01",
+      "tags": "RUNNING, CHALLENGE, COMMUNITY",
+      "title": "SEVEN CHALLENGES - ONE FINISH",
+      "description": "Seven challenges. One finish. The beginning of the 52 Club.",
+      "venue": "EDEN GARDENS TURF, ANANTAPUR",
+      "date_text": "SUNDAY, 23RD AUGUST",
+      "members": "7 Finishers",
+      "collaborations": "Eden Gardens Turf, Coco Fit, Vitamin Store Supplements.",
+      "google_drive_link": "https://drive.google.com/",
+      "image": "",
+      "is_active": true,
+      "order": 0
+    },
+    {
+      "id": 2,
+      "event_number": "02",
+      "title": "RUSH TO WIN",
+      "date_text": "SUNDAY, 30RD AUGUST. 7:00 AM",
+      "venue": "STONES FITNESS STUDIO, ANANTAPUR.",
+      "tags": "RUNNING, CHALLENGE",
+      "google_drive_link": "",
+      "description": "",
+      "members": "52 MEMBERS",
+      "collaborations": "BVR Karthik, Stones Fitness Studio, V Mr. Health.",
+      "image": "",
+      "is_active": true,
+      "order": 1
+    }
+  ],
+  "gallery_images": [
+    {
+      "id": 1,
+      "image": "/media/gallery/pb.png",
+      "caption": "The 52 Club Community",
+      "is_visible": true,
+      "order": 0
+    }
+  ],
+  "collaborators": [
+    {
+      "id": 1,
+      "name": "Eden Gardens Turf",
+      "category": "VENUE PARTNERS",
+      "url": "",
+      "order": 1,
+      "is_active": true
+    },
+    {
+      "id": 2,
+      "name": "BVR Karthik",
+      "category": "FITNESS PARTNERS",
+      "url": "",
+      "order": 3,
+      "is_active": true
+    },
+    {
+      "id": 3,
+      "name": "RedBull",
+      "category": "ENERGY PARTNERS",
+      "url": "",
+      "order": 3,
+      "is_active": true
+    },
+    {
+      "id": 4,
+      "name": "Under Armour",
+      "category": "APPAREL PARTNERS",
+      "url": "",
+      "order": 4,
+      "is_active": true
+    }
+  ],
+  "settings": {
+    "registration_fee": 99,
+    "upi_id": "8374446838@ybl",
+    "upi_display_name": "The 52 Club",
+    "razorpay_key_id": "rzp_test_TYFk9bl92l1piQ",
+    "razorpay_key_secret": "1qd1JUM9BZcMOTAsnHsIG0qV",
+    "webhook_secret": "1qd1JUM9BZcMOTAsnHsIG0qV"
+  },
+  "members": [
+    {
+      "id": 2,
+      "full_name": "Siva",
+      "email": "pranav@gmail.com",
+      "phone": "7989697129",
+      "experience": "beginner",
+      "message": "",
+      "payment_status": "pending",
+      "transaction_id": "581eaf82-9727-4b8c-8968-7ea5ad39d8d3",
+      "registered_at": "2026-09-04T13:47:09Z"
+    },
+    {
+      "id": 1,
+      "full_name": "Pranav",
+      "email": "sivapran2718@gmail.com",
+      "phone": "7989697129",
+      "experience": "beginner",
+      "message": "",
+      "payment_status": "completed",
+      "transaction_id": "e0981d5f-0464-49bd-8d90-f18ca0e40479",
+      "registered_at": "2026-09-04T13:42:24Z",
+      "razorpay_order_id": "order_7260e29dea9f46"
+    }
+  ],
+  "nextMemberId": 11
+}

@@ -1,0 +1,8 @@
+{
+  "name": "Remix the52club",
+  "description": "Strength-based community platform with weekly training sessions, event registration, and membership payment tracking.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

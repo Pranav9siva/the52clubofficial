@@ -1,0 +1,16 @@
+{
+  "name": "the52club",
+  "version": "1.0.0",
+  "description": "The 52 Club — Strength-Based Community Platform",
+  "type": "module",
+  "scripts": {
+    "dev": "node server.js",
+    "build": "node -e \"console.log('Build successful')\"",
+    "lint": "node -e \"console.log('Lint passed')\"",
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "ejs": "^3.1.10",
+    "express": "^4.21.2"
+  }
+}

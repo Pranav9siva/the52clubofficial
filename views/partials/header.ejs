@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Strength-based community platform with weekly training sessions, event registration, and membership payment tracking.">
+    <meta property="og:title" content="Remix the52club">
+    <meta property="og:description" content="Strength-based community platform with weekly training sessions, event registration, and membership payment tracking.">
+
+    <title><%= typeof title !== 'undefined' ? title : 'Remix the52club | Strength-Based Community' %></title>
+
+    <link rel="stylesheet" href="/static/club/style.css">
+    <% if (typeof extraCss !== 'undefined') { %>
+        <%- extraCss %>
+    <% } %>
+</head>
+
+<body id="top" class="<%= typeof bodyClass !== 'undefined' ? bodyClass : '' %>">
+
+    <!-- Header Navigation -->
+    <header class="navbar-v2">
+        <div class="nav-container">
+            <!-- Left: Logo -->
+            <a href="/" class="logo-v2">
+                <img src="/static/club/logo.png" alt="The 52 Club Logo">
+            </a>
+
+            <!-- Center: Navigation Links -->
+            <nav class="nav-menu">
+                <a href="/#home">Home</a>
+                <a href="/#about">About</a>
+                <a href="/#events">Events</a>
+                <a href="/#gallery">Gallery</a>
+            </nav>
+
+            <!-- Right: Action Button & Mobile Toggle -->
+            <div class="nav-actions">
+                <a href="/#register" class="header-register-pill">
+                    Register
+                </a>
+                <button class="mobile-toggle" id="mobileNavToggle" aria-label="Toggle navigation" type="button">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Mobile Navigation Backdrop -->
+        <div class="mobile-nav-backdrop" id="mobileNavBackdrop"></div>
+    </header>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const toggle = document.getElementById('mobileNavToggle');
+            const menu = document.querySelector('.nav-menu');
+            const backdrop = document.getElementById('mobileNavBackdrop');
+
+            if (toggle && menu && backdrop) {
+                function toggleMenu() {
+                    const isOpen = toggle.classList.toggle('active');
+                    menu.classList.toggle('active', isOpen);
+                    backdrop.classList.toggle('active', isOpen);
+                    document.body.style.overflow = isOpen ? 'hidden' : '';
+                }
+
+                function closeMenu() {
+                    toggle.classList.remove('active');
+                    menu.classList.remove('active');
+                    backdrop.classList.remove('active');
+                    document.body.style.overflow = '';
+                }
+
+                toggle.addEventListener('click', toggleMenu);
+                backdrop.addEventListener('click', closeMenu);
+
+                menu.querySelectorAll('a').forEach(function(link) {
+                    link.addEventListener('click', closeMenu);
+                });
+            }
+        });
+    </script>
