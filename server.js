@@ -3,9 +3,36 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import crypto from 'crypto';
 import fs from 'fs';
+import Razorpay from 'razorpay';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
+// Load environment variables from .env if present
+const envFilePath = path.join(__dirname, '.env');
+if (fs.existsSync(envFilePath)) {
+  try {
+    const envContent = fs.readFileSync(envFilePath, 'utf8');
+    envContent.split(/\r?\n/).forEach(line => {
+      const trimmed = line.trim();
+      if (trimmed && !trimmed.startsWith('#')) {
+        let sepIdx = trimmed.indexOf('=');
+        if (sepIdx === -1) {
+          sepIdx = trimmed.indexOf(':');
+        }
+        if (sepIdx !== -1) {
+          const key = trimmed.substring(0, sepIdx).trim();
+          const val = trimmed.substring(sepIdx + 1).trim().replace(/^["']|["']$/g, '');
+          if (key) {
+            process.env[key] = val;
+          }
+        }
+      }
+    });
+  } catch (envErr) {
+    console.warn('Note: .env file loading:', envErr.message);
+  }
+}
 
 const app = express();
 const PORT = 3000;
@@ -113,11 +140,58 @@ function loadDatabase() {
   };
 }
 
+let isSavingInternally = false;
+let lastFileMtime = 0;
+
+try {
+  if (fs.existsSync(DB_FILE)) {
+    const stat = fs.statSync(DB_FILE);
+    lastFileMtime = stat.mtimeMs;
+  }
+} catch (e) {}
+
 const dbData = loadDatabase();
-let events = dbData.events || [];
-let gallery_images = dbData.gallery_images || [];
-let collaborators = dbData.collaborators || [];
-let settings = dbData.settings || {};
+let events = Array.isArray(dbData.events) ? dbData.events : [];
+let gallery_images = Array.isArray(dbData.gallery_images) ? dbData.gallery_images : [];
+let collaborators = Array.isArray(dbData.collaborators) ? dbData.collaborators : [];
+const defaultSettings = {
+  registration_fee: 99,
+  upi_id: '8374446838@ybl',
+  upi_display_name: 'The 52 Club',
+  razorpay_key_id: 'rzp_test_Te8KYr9Tzy9bXR',
+  razorpay_key_secret: 'ZswXhM89Av7i0CphoHm55Z9B',
+  webhook_secret: '1qd1JUM9BZcMOTAsnHsIG0qV'
+};
+
+let settings = Object.assign({}, defaultSettings, dbData.settings || {});
+// Only fallback to process.env if not already set in database.json
+if (!settings.razorpay_key_id && process.env.RAZORPAY_KEY_ID) settings.razorpay_key_id = process.env.RAZORPAY_KEY_ID.trim();
+if (!settings.razorpay_key_secret && process.env.RAZORPAY_KEY_SECRET) settings.razorpay_key_secret = process.env.RAZORPAY_KEY_SECRET.trim();
+if (!settings.upi_id && process.env.UPI_ID) settings.upi_id = process.env.UPI_ID.trim();
+if (!settings.upi_display_name && process.env.UPI_DISPLAY_NAME) settings.upi_display_name = process.env.UPI_DISPLAY_NAME.trim();
+if (!settings.webhook_secret && process.env.WEBHOOK_SECRET) settings.webhook_secret = process.env.WEBHOOK_SECRET.trim();
+
+function getRazorpayClient() {
+  const keyId = (process.env.RAZORPAY_KEY_ID || settings.razorpay_key_id || '').trim();
+  const keySecret = (process.env.RAZORPAY_KEY_SECRET || settings.razorpay_key_secret || '').trim();
+
+  if (!keyId || !keySecret) {
+    return {
+      client: null,
+      keyId,
+      keySecret,
+      error: 'Razorpay credentials not configured. Please set RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET.'
+    };
+  }
+
+  const client = new Razorpay({
+    key_id: keyId,
+    key_secret: keySecret
+  });
+
+  return { client, keyId, keySecret, error: null };
+}
+
 let nextMemberId = dbData.nextMemberId || 10;
 const members = new Map();
 
@@ -136,34 +210,137 @@ function getAllUniqueMembers() {
   return Array.from(unique.values()).sort((a, b) => Number(b.id) - Number(a.id));
 }
 
+// Reload in-memory state if database.json was modified externally or by user
+function checkAndReloadDatabase() {
+  if (isSavingInternally) return;
+  if (!fs.existsSync(DB_FILE)) return;
+  try {
+    const stat = fs.statSync(DB_FILE);
+    if (stat.mtimeMs <= lastFileMtime) return;
+
+    const raw = fs.readFileSync(DB_FILE, 'utf8');
+    const data = JSON.parse(raw);
+    lastFileMtime = stat.mtimeMs;
+
+    if (Array.isArray(data.events)) events = data.events;
+    if (Array.isArray(data.gallery_images)) gallery_images = data.gallery_images;
+    if (Array.isArray(data.collaborators)) collaborators = data.collaborators;
+    if (data.settings && typeof data.settings === 'object') {
+      settings = Object.assign({}, defaultSettings, data.settings);
+    }
+    if (Array.isArray(data.members)) {
+      members.clear();
+      for (const m of data.members) {
+        members.set(String(m.id), m);
+        if (m.transaction_id) {
+          members.set(m.transaction_id, m);
+        }
+      }
+    }
+    if (data.nextMemberId) nextMemberId = data.nextMemberId;
+    console.log(`[DB] Reloaded database.json from disk: ${events.length} events, ${members.size} members.`);
+  } catch (err) {
+    console.error('[DB] Note while checking database.json:', err.message);
+  }
+}
+
+// Watch database.json for external updates
+try {
+  fs.watchFile(DB_FILE, { interval: 1000 }, () => {
+    checkAndReloadDatabase();
+  });
+} catch (e) {}
+
 function saveDatabase() {
   try {
+    isSavingInternally = true;
     const payload = {
-      events,
+      events: events.map(ev => ({
+        id: ev.id,
+        event_number: ev.event_number || '',
+        title: ev.title || '',
+        date_text: ev.date_text || '',
+        venue: ev.venue || '',
+        tags: ev.tags || '',
+        members: ev.members || ev.Challengers || '',
+        Challengers: ev.Challengers || ev.members || '',
+        collaborations: ev.collaborations || '',
+        google_drive_link: ev.google_drive_link || '',
+        description: ev.description || '',
+        image: ev.image || '',
+        is_active: ev.is_active !== false,
+        is_current: !!ev.is_current,
+        order: typeof ev.order === 'number' ? ev.order : 0
+      })),
       gallery_images,
       collaborators,
       settings,
       members: getAllUniqueMembers(),
       nextMemberId
     };
-    fs.writeFileSync(DB_FILE, JSON.stringify(payload, null, 2), 'utf8');
+
+    const jsonStr = JSON.stringify(payload, null, 2);
+    const tempFile = path.join(DATA_DIR, 'database.json.tmp');
+    fs.writeFileSync(tempFile, jsonStr, 'utf8');
+    const fd = fs.openSync(tempFile, 'r+');
+    fs.fsyncSync(fd);
+    fs.closeSync(fd);
+    fs.renameSync(tempFile, DB_FILE);
+
+    const stat = fs.statSync(DB_FILE);
+    lastFileMtime = stat.mtimeMs;
+    console.log(`[DB] Database committed to disk: ${payload.events.length} events, ${payload.members.length} members`);
   } catch (err) {
-    console.error('Failed to write database.json:', err);
+    console.error('[DB ERROR] Failed to write database.json atomically:', err);
+    try {
+      fs.writeFileSync(DB_FILE, JSON.stringify({
+        events,
+        gallery_images,
+        collaborators,
+        settings,
+        members: getAllUniqueMembers(),
+        nextMemberId
+      }, null, 2), 'utf8');
+    } catch (e2) {
+      console.error('[DB FATAL] Direct write failed:', e2);
+    }
+  } finally {
+    setTimeout(() => {
+      isSavingInternally = false;
+    }, 400);
   }
 }
 
 // Initial sync on startup
 saveDatabase();
 
+// Auto-sync middleware so all incoming requests see external or admin edits to database.json
+app.use((req, res, next) => {
+  checkAndReloadDatabase();
+  next();
+});
+
 function getGroupedCollaborators() {
   const categories = {};
   for (const item of collaborators) {
     if (!item.is_active) continue;
-    const cat = item.category.trim().toUpperCase();
+    const cat = (item.category || 'PARTNERS').trim().toUpperCase();
     if (!categories[cat]) categories[cat] = [];
     categories[cat].push(item);
   }
   return categories;
+}
+
+function getCurrentEvent() {
+  const current = events.find(e => e.is_active && e.is_current);
+  if (current) return current;
+  const active = events.filter(e => e.is_active);
+  return active.length > 0 ? active[active.length - 1] : null;
+}
+
+function getPastEvents() {
+  const current = getCurrentEvent();
+  return events.filter(e => e.is_active && (!current || String(e.id) !== String(current.id)));
 }
 
 // ─────────────────────────────────────────────
@@ -173,17 +350,35 @@ function getGroupedCollaborators() {
 // Home Page
 app.get(['/', '/home'], (req, res) => {
   const activeEvents = events.filter(e => e.is_active);
+  const currentEvent = getCurrentEvent();
+  const pastEvents = getPastEvents();
   const visibleGallery = gallery_images.filter(g => g.is_visible);
   const footerGrouped = getGroupedCollaborators();
 
   res.render('home', {
     events: activeEvents,
+    current_event: currentEvent,
+    past_events: pastEvents,
     gallery_images: visibleGallery,
     settings,
     footer_collaborations_grouped: footerGrouped,
     formData: {},
     formErrors: [],
     scroll_to_register: false
+  });
+});
+
+// Past Events Archive Page
+app.get(['/past-events', '/past-events/', '/events/past', '/events/past/'], (req, res) => {
+  const currentEvent = getCurrentEvent();
+  const pastEvents = getPastEvents();
+  const footerGrouped = getGroupedCollaborators();
+
+  res.render('past_events', {
+    current_event: currentEvent,
+    past_events: pastEvents,
+    settings,
+    footer_collaborations_grouped: footerGrouped
   });
 });
 
@@ -198,11 +393,15 @@ app.post(['/register', '/register/'], (req, res) => {
 
   if (errors.length > 0) {
     const activeEvents = events.filter(e => e.is_active);
+    const currentEvent = getCurrentEvent();
+    const pastEvents = getPastEvents();
     const visibleGallery = gallery_images.filter(g => g.is_visible);
     const footerGrouped = getGroupedCollaborators();
 
     return res.render('home', {
       events: activeEvents,
+      current_event: currentEvent,
+      past_events: pastEvents,
       gallery_images: visibleGallery,
       settings,
       footer_collaborations_grouped: footerGrouped,
@@ -245,20 +444,16 @@ app.get(['/payment/:member_id', '/payment/:member_id/'], (req, res) => {
     return res.redirect('/');
   }
 
-  const keyId = (settings.razorpay_key_id || '').trim();
-  const keySecret = (settings.razorpay_key_secret || '').trim();
-  const isRazorpayConfigured = Boolean(
-    keyId &&
-    keySecret &&
-    keyId !== 'rzp_test_52clubKeyId'
-  );
+  const { keyId, keySecret } = getRazorpayClient();
+  const isRazorpayConfigured = Boolean(keyId && keySecret);
 
-  const amountInPaise = Math.round(settings.registration_fee * 100);
-  const razorpayOrderId = member.razorpay_order_id || `order_${crypto.randomUUID().replace(/-/g, '').slice(0, 14)}`;
-  member.razorpay_order_id = razorpayOrderId;
+  const amountInPaise = Math.round((settings.registration_fee || 99) * 100);
+  const razorpayOrderId = member.razorpay_order_id || '';
 
-  const feeStr = Number(settings.registration_fee).toFixed(2);
-  const upiUrl = `upi://pay?pa=${encodeURIComponent(settings.upi_id.trim())}&pn=${encodeURIComponent(settings.upi_display_name.trim())}&am=${feeStr}&cu=INR`;
+  const feeStr = Number(settings.registration_fee || 99).toFixed(2);
+  const upiId = (settings.upi_id || '').trim();
+  const upiDisplayName = (settings.upi_display_name || 'The 52 Club').trim();
+  const upiUrl = upiId ? `upi://pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent(upiDisplayName)}&am=${feeStr}&cu=INR` : '';
 
   const footerGrouped = getGroupedCollaborators();
 
@@ -370,9 +565,14 @@ app.get(['/admin', '/admin/'], requireAdmin, (req, res) => {
   const pendingCount = uniqueMembers.filter(m => m.payment_status !== 'completed').length;
   const totalRevenue = paidCount * (settings.registration_fee || 0);
 
+  const currentEvent = getCurrentEvent();
+  const pastEvents = events.filter(e => !currentEvent || String(e.id) !== String(currentEvent.id));
+
   res.render('admin', {
     members: uniqueMembers,
     events,
+    current_event: currentEvent,
+    past_events: pastEvents,
     collaborators,
     gallery_images,
     settings,
@@ -386,8 +586,23 @@ app.get(['/admin', '/admin/'], requireAdmin, (req, res) => {
   });
 });
 
+// Admin Past Events Management Page
+app.get(['/admin/past-events', '/admin/past-events/'], requireAdmin, (req, res) => {
+  const currentEvent = getCurrentEvent();
+  const pastEvents = events.filter(e => !currentEvent || String(e.id) !== String(currentEvent.id));
+
+  res.render('admin_past_events', {
+    current_event: currentEvent,
+    past_events: pastEvents,
+    events,
+    settings,
+    success: req.query.success || null
+  });
+});
+
 // Member Edit
 app.post('/admin/members/:id/edit', requireAdmin, (req, res) => {
+  checkAndReloadDatabase();
   const memberId = req.params.id;
   const member = members.get(String(memberId));
   if (member) {
@@ -405,6 +620,7 @@ app.post('/admin/members/:id/edit', requireAdmin, (req, res) => {
 
 // Member Toggle Payment Status
 app.post('/admin/members/:id/toggle-payment', requireAdmin, (req, res) => {
+  checkAndReloadDatabase();
   const memberId = req.params.id;
   const member = members.get(String(memberId));
   if (member) {
@@ -416,6 +632,7 @@ app.post('/admin/members/:id/toggle-payment', requireAdmin, (req, res) => {
 
 // Member Delete
 app.post('/admin/members/:id/delete', requireAdmin, (req, res) => {
+  checkAndReloadDatabase();
   const memberId = String(req.params.id);
   for (const [key, val] of members.entries()) {
     if (val && (String(val.id) === memberId || (val.transaction_id && String(val.transaction_id) === memberId))) {
@@ -453,10 +670,17 @@ app.get('/admin/export-csv', requireAdmin, (req, res) => {
   res.send(csvContent);
 });
 
-// Events Add, Edit, Delete & Toggle
+// Events Add, Edit, Delete, Toggle & Set Current
 app.post('/admin/events/add', requireAdmin, (req, res) => {
-  const { event_number, title, date_text, venue, tags, google_drive_link, description, members: memText, collaborations: colText } = req.body;
+  checkAndReloadDatabase();
+  const { event_number, title, date_text, venue, tags, google_drive_link, description, members: memText, collaborations: colText, is_current, image } = req.body;
   const newId = events.length > 0 ? Math.max(...events.map(e => Number(e.id) || 0)) + 1 : 1;
+  const makeCurrent = is_current === 'true' || is_current === 'on' || is_current === true;
+
+  if (makeCurrent) {
+    events.forEach(e => { e.is_current = false; });
+  }
+
   const newEvent = {
     id: newId,
     event_number: event_number ? event_number.trim() : String(newId).padStart(2, '0'),
@@ -467,52 +691,108 @@ app.post('/admin/events/add', requireAdmin, (req, res) => {
     google_drive_link: google_drive_link ? google_drive_link.trim() : '',
     description: description ? description.trim() : '',
     members: memText ? memText.trim() : '',
+    Challengers: memText ? memText.trim() : '',
     collaborations: colText ? colText.trim() : '',
-    image: '',
+    image: image ? image.trim() : '',
     is_active: true,
+    is_current: makeCurrent,
     order: events.length
   };
   events.push(newEvent);
   saveDatabase();
+
+  const isFromPast = req.body.from === 'past-events' || req.query.from === 'past-events' || req.headers.referer?.includes('past-events');
+  if (isFromPast) {
+    return res.redirect('/admin/past-events?auth=1&success=Event+created+successfully');
+  }
   res.redirect('/admin?auth=1&tab=events&success=Event+created+successfully');
 });
 
 app.post('/admin/events/:id/edit', requireAdmin, (req, res) => {
+  checkAndReloadDatabase();
   const ev = events.find(e => String(e.id) === String(req.params.id));
   if (ev) {
-    const { event_number, title, date_text, venue, tags, google_drive_link, description, members: memText, collaborations: colText, is_active } = req.body;
-    if (event_number) ev.event_number = event_number.trim();
-    if (title) ev.title = title.trim();
+    const { event_number, title, date_text, venue, tags, google_drive_link, description, members: memText, collaborations: colText, is_active, is_current, image } = req.body;
+    if (event_number !== undefined) ev.event_number = event_number.trim();
+    if (title !== undefined && title.trim()) ev.title = title.trim();
     if (date_text !== undefined) ev.date_text = date_text.trim();
     if (venue !== undefined) ev.venue = venue.trim();
     if (tags !== undefined) ev.tags = tags.trim();
     if (google_drive_link !== undefined) ev.google_drive_link = google_drive_link.trim();
     if (description !== undefined) ev.description = description.trim();
-    if (memText !== undefined) ev.members = memText.trim();
+    if (image !== undefined) ev.image = image.trim();
+    if (memText !== undefined) {
+      ev.members = memText.trim();
+      ev.Challengers = memText.trim();
+    }
     if (colText !== undefined) ev.collaborations = colText.trim();
-    ev.is_active = is_active === 'on' || is_active === 'true' || is_active === true;
+    if (is_active !== undefined) {
+      ev.is_active = is_active === 'on' || is_active === 'true' || is_active === true;
+    }
+    if (is_current !== undefined) {
+      const makeCurrent = is_current === 'on' || is_current === 'true' || is_current === true;
+      if (makeCurrent) {
+        events.forEach(e => { e.is_current = false; });
+        ev.is_current = true;
+      } else {
+        ev.is_current = false;
+      }
+    }
     saveDatabase();
+  }
+
+  const isFromPast = req.body.from === 'past-events' || req.query.from === 'past-events' || req.headers.referer?.includes('past-events');
+  if (isFromPast) {
+    return res.redirect('/admin/past-events?auth=1&success=Event+updated+successfully');
   }
   res.redirect('/admin?auth=1&tab=events&success=Event+updated+successfully');
 });
 
+app.post('/admin/events/:id/set-current', requireAdmin, (req, res) => {
+  checkAndReloadDatabase();
+  const targetId = String(req.params.id);
+  events.forEach(e => {
+    e.is_current = (String(e.id) === targetId);
+  });
+  saveDatabase();
+
+  const isFromPast = req.body.from === 'past-events' || req.query.from === 'past-events' || req.headers.referer?.includes('past-events');
+  if (isFromPast) {
+    return res.redirect('/admin/past-events?auth=1&success=Event+set+as+current+successfully');
+  }
+  res.redirect('/admin?auth=1&tab=events&success=Event+set+as+current+successfully');
+});
+
 app.post('/admin/events/:id/delete', requireAdmin, (req, res) => {
+  checkAndReloadDatabase();
   events = events.filter(e => String(e.id) !== String(req.params.id));
   saveDatabase();
+
+  const isFromPast = req.body.from === 'past-events' || req.query.from === 'past-events' || req.headers.referer?.includes('past-events');
+  if (isFromPast) {
+    return res.redirect('/admin/past-events?auth=1&success=Event+deleted+successfully');
+  }
   res.redirect('/admin?auth=1&tab=events&success=Event+deleted+successfully');
 });
 
 app.post('/admin/events/:id/toggle', requireAdmin, (req, res) => {
+  checkAndReloadDatabase();
   const ev = events.find(e => String(e.id) === String(req.params.id));
   if (ev) {
     ev.is_active = !ev.is_active;
     saveDatabase();
+  }
+
+  const isFromPast = req.body.from === 'past-events' || req.query.from === 'past-events' || req.headers.referer?.includes('past-events');
+  if (isFromPast) {
+    return res.redirect('/admin/past-events?auth=1&success=Event+status+updated');
   }
   res.redirect('/admin?auth=1&tab=events&success=Event+status+updated');
 });
 
 // Collaborations Add, Edit, Delete & Toggle
 app.post('/admin/collaborators/add', requireAdmin, (req, res) => {
+  checkAndReloadDatabase();
   const { name, category, url, order } = req.body;
   if (name && category) {
     const newId = collaborators.length > 0 ? Math.max(...collaborators.map(c => Number(c.id) || 0)) + 1 : 1;
@@ -530,6 +810,7 @@ app.post('/admin/collaborators/add', requireAdmin, (req, res) => {
 });
 
 app.post('/admin/collaborators/:id/edit', requireAdmin, (req, res) => {
+  checkAndReloadDatabase();
   const c = collaborators.find(item => String(item.id) === String(req.params.id));
   if (c) {
     const { name, category, url, order, is_active } = req.body;
@@ -544,12 +825,14 @@ app.post('/admin/collaborators/:id/edit', requireAdmin, (req, res) => {
 });
 
 app.post('/admin/collaborators/:id/delete', requireAdmin, (req, res) => {
+  checkAndReloadDatabase();
   collaborators = collaborators.filter(item => String(item.id) !== String(req.params.id));
   saveDatabase();
   res.redirect('/admin?auth=1&tab=collaborators&success=Collaborator+deleted+successfully');
 });
 
 app.post('/admin/collaborators/:id/toggle', requireAdmin, (req, res) => {
+  checkAndReloadDatabase();
   const c = collaborators.find(item => String(item.id) === String(req.params.id));
   if (c) {
     c.is_active = !c.is_active;
@@ -560,6 +843,7 @@ app.post('/admin/collaborators/:id/toggle', requireAdmin, (req, res) => {
 
 // Gallery Add, Toggle & Delete
 app.post('/admin/gallery/add', requireAdmin, (req, res) => {
+  checkAndReloadDatabase();
   const { image, caption } = req.body;
   if (image) {
     const newId = gallery_images.length > 0 ? Math.max(...gallery_images.map(g => Number(g.id) || 0)) + 1 : 1;
@@ -576,6 +860,7 @@ app.post('/admin/gallery/add', requireAdmin, (req, res) => {
 });
 
 app.post('/admin/gallery/:id/toggle', requireAdmin, (req, res) => {
+  checkAndReloadDatabase();
   const img = gallery_images.find(g => String(g.id) === String(req.params.id));
   if (img) {
     img.is_visible = !img.is_visible;
@@ -585,6 +870,7 @@ app.post('/admin/gallery/:id/toggle', requireAdmin, (req, res) => {
 });
 
 app.post('/admin/gallery/:id/delete', requireAdmin, (req, res) => {
+  checkAndReloadDatabase();
   gallery_images = gallery_images.filter(g => String(g.id) !== String(req.params.id));
   saveDatabase();
   res.redirect('/admin?auth=1&tab=gallery&success=Gallery+image+deleted');
@@ -592,6 +878,7 @@ app.post('/admin/gallery/:id/delete', requireAdmin, (req, res) => {
 
 // Settings Update
 app.post('/admin/settings/update', requireAdmin, (req, res) => {
+  checkAndReloadDatabase();
   const { registration_fee, upi_id, upi_display_name, razorpay_key_id, razorpay_key_secret, webhook_secret } = req.body;
   if (registration_fee) settings.registration_fee = Number(registration_fee);
   if (upi_id) settings.upi_id = upi_id.trim();
@@ -634,55 +921,185 @@ app.get(['/api/payment/status/:transaction_id', '/api/payment/status/:transactio
   });
 });
 
-// Razorpay Payment Verification
-app.post(['/api/payment/verify', '/api/payment/verify/'], (req, res) => {
+// STEP 1: Backend Endpoint to Create Orders
+// POST /api/create-order
+// Request: { amount (paise), currency, receipt, transaction_id, member_id }
+// Return: { order_id, amount, currency }
+app.post(['/api/create-order', '/api/create-order/'], async (req, res) => {
   try {
-    const { razorpay_order_id, razorpay_payment_id, razorpay_signature, transaction_id } = req.body;
+    const { amount, currency, receipt, transaction_id, member_id } = req.body || {};
 
-    let member = members.get(transaction_id);
-    if (!member && transaction_id) {
-      const cleanTx = transaction_id.replace(/-/g, '');
+    // Validate amount: minimum 100 paise
+    const parsedAmount = parseInt(amount, 10);
+    if (isNaN(parsedAmount) || parsedAmount < 100) {
+      return res.status(400).json({
+        success: false,
+        error: 'Amount must be at least 100 paise (₹1)'
+      });
+    }
+
+    const { client, keyId, error } = getRazorpayClient();
+    if (error || !client) {
+      return res.status(401).json({
+        success: false,
+        error: error || 'Razorpay authentication failed: missing credentials'
+      });
+    }
+
+    const receiptId = (receipt || (transaction_id ? `rcpt_${transaction_id.replace(/-/g, '').slice(0, 12)}` : `rcpt_${Date.now()}`)).slice(0, 40);
+
+    let order;
+    try {
+      order = await client.orders.create({
+        amount: parsedAmount,
+        currency: (currency || 'INR').toUpperCase(),
+        receipt: receiptId
+      });
+    } catch (apiErr) {
+      console.error('Razorpay API create order error:', apiErr);
+      const isAuthError = apiErr.statusCode === 401 ||
+        (apiErr.error && (apiErr.error.code === 'BAD_REQUEST_ERROR' && apiErr.statusCode === 401)) ||
+        (apiErr.message && apiErr.message.toLowerCase().includes('auth'));
+
+      if (isAuthError) {
+        return res.status(401).json({
+          success: false,
+          error: 'Razorpay authentication failed. Please verify your RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET.'
+        });
+      }
+
+      return res.status(500).json({
+        success: false,
+        error: apiErr.error?.description || apiErr.message || 'Failed to create Razorpay order'
+      });
+    }
+
+    // Associate order_id with member in database if provided
+    let member = null;
+    if (transaction_id) {
+      member = members.get(transaction_id);
+      if (!member) {
+        const cleanTx = transaction_id.replace(/-/g, '');
+        for (const m of members.values()) {
+          if (m.transaction_id && m.transaction_id.replace(/-/g, '') === cleanTx) {
+            member = m;
+            break;
+          }
+        }
+      }
+    }
+    if (!member && member_id) {
+      member = members.get(String(member_id));
+    }
+    if (member) {
+      member.razorpay_order_id = order.id;
+      saveDatabase();
+    }
+
+    // Required response: { order_id, amount, currency }
+    return res.status(200).json({
+      success: true,
+      order_id: order.id,
+      amount: order.amount,
+      currency: order.currency,
+      key_id: keyId
+    });
+  } catch (err) {
+    console.error('Unexpected error creating order:', err);
+    return res.status(500).json({
+      success: false,
+      error: err.message || 'Internal server error while creating order'
+    });
+  }
+});
+
+// STEP 3: Backend Endpoint to Verify Signature
+// POST /api/verify-payment (also supports alias /api/payment/verify)
+// Algorithm: HMAC-SHA256(order_id + "|" + payment_id, KEY_SECRET)
+// Compare generated signature with razorpay_signature
+// Return success only if signatures match
+app.post(['/api/verify-payment', '/api/verify-payment/', '/api/payment/verify', '/api/payment/verify/'], (req, res) => {
+  try {
+    const { razorpay_order_id, razorpay_payment_id, razorpay_signature, transaction_id, member_id } = req.body || {};
+
+    // Validate missing fields: return 400
+    if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
+      return res.status(400).json({
+        success: false,
+        error: 'Missing required fields: razorpay_order_id, razorpay_payment_id, and razorpay_signature are required'
+      });
+    }
+
+    const { keySecret } = getRazorpayClient();
+    if (!keySecret) {
+      return res.status(500).json({
+        success: false,
+        error: 'Razorpay secret key is not configured on server'
+      });
+    }
+
+    // Algorithm: HMAC-SHA256(order_id + "|" + payment_id, KEY_SECRET)
+    const expectedSignature = crypto
+      .createHmac('sha256', keySecret)
+      .update(`${razorpay_order_id}|${razorpay_payment_id}`)
+      .digest('hex');
+
+    // Signature mismatch: return 400, do NOT mark as paid
+    if (expectedSignature !== razorpay_signature) {
+      return res.status(400).json({
+        success: false,
+        error: 'Payment verification failed: Signature mismatch'
+      });
+    }
+
+    // Signatures match! Mark payment as completed
+    let member = null;
+    if (transaction_id) {
+      member = members.get(transaction_id);
+      if (!member) {
+        const cleanTx = transaction_id.replace(/-/g, '');
+        for (const m of members.values()) {
+          if (m.transaction_id && m.transaction_id.replace(/-/g, '') === cleanTx) {
+            member = m;
+            break;
+          }
+        }
+      }
+    }
+    if (!member && member_id) {
+      member = members.get(String(member_id));
+    }
+    if (!member && razorpay_order_id) {
       for (const m of members.values()) {
-        if (m.transaction_id && m.transaction_id.replace(/-/g, '') === cleanTx) {
+        if (m.razorpay_order_id === razorpay_order_id) {
           member = m;
           break;
         }
       }
     }
 
-    if (!member) {
-      return res.status(404).json({ success: false, error: 'Transaction not found' });
+    if (member) {
+      member.payment_status = 'completed';
+      member.razorpay_order_id = razorpay_order_id;
+      member.razorpay_payment_id = razorpay_payment_id;
+      member.razorpay_signature = razorpay_signature;
+      saveDatabase();
     }
 
-    // If signature provided and keys available, check HMAC
-    if (settings.razorpay_key_secret && razorpay_order_id && razorpay_payment_id && razorpay_signature) {
-      try {
-        const expectedSignature = crypto
-          .createHmac('sha256', settings.razorpay_key_secret)
-          .update(`${razorpay_order_id}|${razorpay_payment_id}`)
-          .digest('hex');
-
-        if (expectedSignature !== razorpay_signature) {
-          console.warn('Signature verification mismatch, accepting for test mode');
-        }
-      } catch (err) {
-        console.warn('Signature check skipped:', err);
-      }
-    }
-
-    member.payment_status = 'completed';
-    member.razorpay_payment_id = razorpay_payment_id || `pay_${crypto.randomUUID().slice(0, 10)}`;
-    if (razorpay_order_id) member.razorpay_order_id = razorpay_order_id;
-    saveDatabase();
-
-    res.json({
+    return res.status(200).json({
       success: true,
-      member_id: member.id,
+      message: 'Payment signature verified successfully',
+      order_id: razorpay_order_id,
+      payment_id: razorpay_payment_id,
+      member_id: member ? member.id : null,
       status: 'completed'
     });
   } catch (err) {
     console.error('Payment verify error:', err);
-    res.status(400).json({ success: false, error: err.message });
+    return res.status(500).json({
+      success: false,
+      error: err.message || 'Internal server error during verification'
+    });
   }
 });
 

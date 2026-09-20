@@ -1,0 +1,776 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Past Events Management | The 52 Club Admin</title>
+    <link rel="icon" href="/static/club/logo.png" type="image/png">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Playfair+Display:ital,wght@0,700;0,900;1,700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-base: #0a0a0a;
+            --bg-card: #121212;
+            --bg-input: #1a1a1a;
+            --border-color: #242424;
+            --text-primary: #ffffff;
+            --text-secondary: #8a8a8a;
+            --accent-green: #10b981;
+            --accent-amber: #f59e0b;
+            --accent-red: #ef4444;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background-color: var(--bg-base);
+            color: var(--text-primary);
+            font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+            min-height: 100vh;
+            padding-bottom: 60px;
+        }
+
+        .admin-header {
+            background: #000000;
+            border-bottom: 1px solid var(--border-color);
+            padding: 16px 32px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .admin-brand {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            text-decoration: none;
+            color: #ffffff;
+        }
+
+        .admin-brand img {
+            width: 38px;
+            height: 38px;
+            object-fit: contain;
+        }
+
+        .admin-brand-text h1 {
+            font-size: 16px;
+            font-weight: 800;
+            letter-spacing: 1.5px;
+            text-transform: uppercase;
+        }
+
+        .admin-brand-text p {
+            font-size: 11px;
+            color: var(--text-secondary);
+            font-weight: 600;
+            letter-spacing: 0.5px;
+        }
+
+        .admin-nav-actions {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .btn-header-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: transparent;
+            border: 1px solid var(--border-color);
+            color: var(--text-secondary);
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 700;
+            text-decoration: none;
+            transition: all 0.2s;
+        }
+
+        .btn-header-link:hover {
+            color: #ffffff;
+            border-color: #555555;
+            background: rgba(255, 255, 255, 0.04);
+        }
+
+        .admin-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 32px 24px;
+        }
+
+        .breadcrumb-bar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 24px;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+
+        .back-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            color: #8a8a8a;
+            text-decoration: none;
+            font-size: 13px;
+            font-weight: 700;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            transition: color 0.2s;
+        }
+
+        .back-link:hover {
+            color: #ffffff;
+        }
+
+        .alert-success {
+            background: rgba(16, 185, 129, 0.12);
+            border: 1px solid rgba(16, 185, 129, 0.3);
+            color: #34d399;
+            padding: 14px 18px;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 600;
+            margin-bottom: 24px;
+        }
+
+        .section-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 28px;
+            margin-bottom: 32px;
+        }
+
+        .section-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 24px;
+            flex-wrap: wrap;
+            gap: 16px;
+        }
+
+        .section-title {
+            font-size: 20px;
+            font-weight: 800;
+            letter-spacing: -0.5px;
+        }
+
+        .section-subtitle {
+            font-size: 13px;
+            color: var(--text-secondary);
+            margin-top: 4px;
+        }
+
+        .events-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+            gap: 20px;
+        }
+
+        .event-admin-card {
+            background: #181818;
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            padding: 22px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            transition: border-color 0.2s;
+        }
+
+        .event-admin-card:hover {
+            border-color: #404040;
+        }
+
+        .status-badge {
+            display: inline-block;
+            font-size: 10px;
+            font-weight: 800;
+            letter-spacing: 0.5px;
+            padding: 3px 8px;
+            border-radius: 4px;
+            text-transform: uppercase;
+        }
+
+        .status-badge.paid {
+            background: rgba(16, 185, 129, 0.15);
+            color: #34d399;
+            border: 1px solid rgba(16, 185, 129, 0.3);
+        }
+
+        .status-badge.pending {
+            background: rgba(239, 68, 68, 0.15);
+            color: #f87171;
+            border: 1px solid rgba(239, 68, 68, 0.3);
+        }
+
+        .status-badge.current {
+            background: #ffffff;
+            color: #000000;
+            border: 1px solid #ffffff;
+        }
+
+        .event-admin-title {
+            font-size: 17px;
+            font-weight: 800;
+            margin: 10px 0 12px;
+            line-height: 1.3;
+        }
+
+        .event-admin-detail {
+            font-size: 12.5px;
+            color: #b0b0b0;
+            margin-bottom: 6px;
+            line-height: 1.4;
+        }
+
+        .event-admin-detail strong {
+            color: #ffffff;
+        }
+
+        .btn-table-edit {
+            background: #262626;
+            color: #ffffff;
+            border: 1px solid #3a3a3a;
+            padding: 7px 14px;
+            border-radius: 5px;
+            font-size: 12px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-table-edit:hover {
+            background: #333333;
+            border-color: #555555;
+        }
+
+        .btn-table-setcurrent {
+            background: rgba(16, 185, 129, 0.15);
+            color: #34d399;
+            border: 1px solid rgba(16, 185, 129, 0.3);
+            padding: 7px 14px;
+            border-radius: 5px;
+            font-size: 12px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-table-setcurrent:hover {
+            background: rgba(16, 185, 129, 0.25);
+            border-color: #34d399;
+        }
+
+        .btn-table-toggle {
+            background: #1f1f1f;
+            color: #888888;
+            border: 1px solid #333333;
+            padding: 7px 14px;
+            border-radius: 5px;
+            font-size: 12px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-table-toggle:hover {
+            color: #ffffff;
+            background: #2a2a2a;
+        }
+
+        .btn-table-delete {
+            background: rgba(239, 68, 68, 0.1);
+            color: #f87171;
+            border: 1px solid rgba(239, 68, 68, 0.2);
+            padding: 7px 14px;
+            border-radius: 5px;
+            font-size: 12px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-table-delete:hover {
+            background: rgba(239, 68, 68, 0.2);
+            border-color: #f87171;
+        }
+
+        .btn-action {
+            background: #ffffff;
+            color: #000000;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            font-size: 13px;
+            font-weight: 800;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            transition: background 0.2s;
+        }
+
+        .btn-action:hover {
+            background: #e0e0e0;
+        }
+
+        .form-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 16px;
+            margin-bottom: 16px;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .form-label {
+            font-size: 12px;
+            font-weight: 700;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .form-input-box {
+            background: var(--bg-input);
+            border: 1px solid var(--border-color);
+            color: #ffffff;
+            padding: 10px 14px;
+            border-radius: 6px;
+            font-size: 14px;
+            font-family: inherit;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        .form-input-box:focus {
+            border-color: #ffffff;
+        }
+
+        /* Modal */
+        .modal-backdrop {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.75);
+            backdrop-filter: blur(4px);
+            z-index: 999;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+        }
+
+        .modal-backdrop.open {
+            display: flex;
+        }
+
+        .modal-card {
+            background: #141414;
+            border: 1px solid #333333;
+            border-radius: 12px;
+            width: 100%;
+            max-width: 680px;
+            max-height: 90vh;
+            overflow-y: auto;
+            padding: 28px;
+        }
+
+        .modal-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 20px;
+            padding-bottom: 14px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .modal-title {
+            font-size: 18px;
+            font-weight: 800;
+        }
+
+        .modal-close {
+            background: transparent;
+            border: none;
+            color: #888888;
+            font-size: 24px;
+            cursor: pointer;
+            line-height: 1;
+        }
+
+        .modal-close:hover {
+            color: #ffffff;
+        }
+
+        .modal-footer {
+            display: flex;
+            justify-content: flex-end;
+            gap: 12px;
+            margin-top: 24px;
+            padding-top: 18px;
+            border-top: 1px solid var(--border-color);
+        }
+
+        .btn-modal-cancel {
+            background: transparent;
+            color: #888888;
+            border: 1px solid #333333;
+            padding: 10px 20px;
+            border-radius: 6px;
+            font-size: 13px;
+            font-weight: 700;
+            cursor: pointer;
+        }
+
+        .btn-modal-cancel:hover {
+            color: #ffffff;
+            border-color: #555555;
+        }
+    </style>
+</head>
+<body>
+    <header class="admin-header">
+        <a href="/admin?auth=1" class="admin-brand">
+            <img src="/static/club/logo.png" alt="The 52 Club">
+            <div class="admin-brand-text">
+                <h1>THE 52 CLUB</h1>
+                <p>PAST EVENTS & ARCHIVE MANAGER</p>
+            </div>
+        </a>
+        <div class="admin-nav-actions">
+            <a href="/admin?auth=1&tab=events" class="btn-header-link">
+                ⚡ Current Event
+            </a>
+            <a href="/past-events" target="_blank" class="btn-header-link">
+                🌐 Public Archive Page ↗
+            </a>
+            <form action="/admin/logout?auth=1" method="POST" style="margin: 0;">
+                <button type="submit" class="btn-header-link" style="color: #ef4444; border-color: rgba(239, 68, 68, 0.3); cursor: pointer;">
+                    Logout
+                </button>
+            </form>
+        </div>
+    </header>
+
+    <main class="admin-container">
+        <div class="breadcrumb-bar">
+            <a href="/admin?auth=1&tab=events" class="back-link">
+                ← BACK TO CURRENT EVENT (ADMIN DASHBOARD)
+            </a>
+            <span style="font-size: 12px; color: var(--text-secondary); font-weight: 700;">
+                <%= past_events ? past_events.length : 0 %> PAST EVENTS IN ARCHIVE
+            </span>
+        </div>
+
+        <% if (typeof success !== 'undefined' && success) { %>
+        <div class="alert-success">
+            ✓ <%= success %>
+        </div>
+        <% } %>
+
+        <!-- Current Active Event Quick Reference -->
+        <% if (typeof current_event !== 'undefined' && current_event) { %>
+        <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.12); border-radius: 8px; padding: 14px 20px; margin-bottom: 28px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+            <div>
+                <span class="status-badge current" style="margin-bottom: 4px;">⚡ ACTIVE ON HOMEPAGE</span>
+                <p style="font-size: 14px; font-weight: 800; color: #ffffff; margin-top: 4px;">
+                    Event <%= current_event.event_number %>: <%= current_event.title %> · <%= current_event.date_text %>
+                </p>
+            </div>
+            <a href="/admin?auth=1&tab=events" class="btn-table-edit" style="text-decoration: none;">
+                Edit Current Event Details ➔
+            </a>
+        </div>
+        <% } %>
+
+        <!-- Past Events Management Section -->
+        <div class="section-card">
+            <div class="section-header">
+                <div>
+                    <h2 class="section-title">Past Events Archive (Editable by Admin)</h2>
+                    <p class="section-subtitle">These sessions appear on the dedicated <a href="/past-events" target="_blank" style="color: #60a5fa; text-decoration: none;">/past-events</a> public page.</p>
+                </div>
+                <div>
+                    <a href="#addPastEventForm" class="btn-action" style="padding: 9px 18px; font-size: 12px;">
+                        + ADD NEW PAST EVENT
+                    </a>
+                </div>
+            </div>
+
+            <% if (past_events && past_events.length > 0) { %>
+            <div class="events-grid" style="margin-bottom: 32px;">
+                <% past_events.forEach(function(ev) { %>
+                <div class="event-admin-card" id="card-event-<%= ev.id %>">
+                    <div>
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                            <span style="font-size: 11px; color: var(--text-secondary); font-weight: 800; letter-spacing: 1px;">EVENT <%= ev.event_number %></span>
+                            <span class="status-badge <%= ev.is_active ? 'paid' : 'pending' %>">
+                                <%= ev.is_active ? 'ACTIVE (ARCHIVED)' : 'HIDDEN' %>
+                            </span>
+                        </div>
+                        <h3 class="event-admin-title">🏁 <%= ev.title %></h3>
+                        <p class="event-admin-detail"><strong>📅 Date:</strong> <%= ev.date_text || 'TBA' %></p>
+                        <p class="event-admin-detail"><strong>📍 Venue:</strong> <%= ev.venue || 'TBA' %></p>
+                        <p class="event-admin-detail"><strong>👥 Challengers:</strong> <%= ev.Challengers || ev.members || 'Completed' %></p>
+                        <% if (ev.collaborations) { %>
+                            <p class="event-admin-detail"><strong>🔥 Collaborations:</strong> <%= ev.collaborations %></p>
+                        <% } %>
+                        <% if (ev.tags) { %>
+                            <p class="event-admin-detail"><strong>🏷️ Tags:</strong> <%= ev.tags %></p>
+                        <% } %>
+                        <% if (ev.google_drive_link) { %>
+                            <p class="event-admin-detail"><strong>📁 Drive:</strong> <a href="<%= ev.google_drive_link %>" target="_blank" style="color: #60a5fa; text-decoration: none;">View Drive Folder ↗</a></p>
+                        <% } %>
+                        <% if (ev.description) { %>
+                            <p class="event-admin-detail" style="font-style: italic; margin-top: 8px; color: #888888;"><%= ev.description %></p>
+                        <% } %>
+                    </div>
+
+                    <div style="margin-top: 20px; display: flex; gap: 8px; flex-wrap: wrap; border-top: 1px solid var(--border-color); padding-top: 14px;">
+                        <button type="button" class="btn-table-edit"
+                            data-id="<%= ev.id %>"
+                            data-number="<%= ev.event_number || '' %>"
+                            data-title="<%= ev.title || '' %>"
+                            data-date="<%= ev.date_text || '' %>"
+                            data-venue="<%= ev.venue || '' %>"
+                            data-tags="<%= ev.tags || '' %>"
+                            data-drive="<%= ev.google_drive_link || '' %>"
+                            data-members="<%= ev.Challengers || ev.members || '' %>"
+                            data-collabs="<%= ev.collaborations || '' %>"
+                            data-desc="<%= ev.description || '' %>"
+                            data-active="<%= ev.is_active ? 'true' : 'false' %>"
+                            onclick="openEditPastEvent(this)">Edit Details</button>
+
+                        <form action="/admin/events/<%= ev.id %>/set-current?auth=1" method="POST" style="display: inline;">
+                            <input type="hidden" name="auth" value="1">
+                            <input type="hidden" name="from" value="past-events">
+                            <button type="submit" class="btn-table-setcurrent" title="Set this event as the current event on the home page">
+                                ⚡ Make Current
+                            </button>
+                        </form>
+
+                        <form action="/admin/events/<%= ev.id %>/toggle?auth=1" method="POST" style="display: inline;">
+                            <input type="hidden" name="auth" value="1">
+                            <input type="hidden" name="from" value="past-events">
+                            <button type="submit" class="btn-table-toggle"><%= ev.is_active ? 'Hide' : 'Show' %></button>
+                        </form>
+
+                        <form id="delete-event-<%= ev.id %>" action="/admin/events/<%= ev.id %>/delete?auth=1" method="POST" style="display: inline;">
+                            <input type="hidden" name="auth" value="1">
+                            <input type="hidden" name="from" value="past-events">
+                            <button type="button" class="btn-table-delete"
+                                data-form-id="delete-event-<%= ev.id %>"
+                                data-title="<%= ev.title || 'Event #' + ev.event_number %>"
+                                onclick="triggerEventDelete(this)">Delete</button>
+                        </form>
+                    </div>
+                </div>
+                <% }); %>
+            </div>
+            <% } else { %>
+            <div style="text-align: center; padding: 48px 24px; background: rgba(255,255,255,0.02); border: 1px dashed rgba(255,255,255,0.15); border-radius: 8px; margin-bottom: 32px;">
+                <p style="font-size: 15px; font-weight: 700; color: #ffffff; margin-bottom: 6px;">NO PAST EVENTS IN ARCHIVE</p>
+                <p style="font-size: 13px; color: #888888;">Add previous session finishes, challenger stats, and photos below.</p>
+            </div>
+            <% } %>
+
+            <!-- Add New Past Event Form -->
+            <div id="addPastEventForm" style="border-top: 1px solid var(--border-color); padding-top: 28px;">
+                <h3 style="font-size: 16px; font-weight: 800; margin-bottom: 16px; text-transform: uppercase; letter-spacing: 0.5px;">+ Add New Event to Archive</h3>
+                <form action="/admin/events/add?auth=1" method="POST">
+                    <input type="hidden" name="auth" value="1">
+                    <input type="hidden" name="from" value="past-events">
+                    <input type="hidden" name="is_current" value="false">
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label class="form-label">Event Number</label>
+                            <input type="text" name="event_number" class="form-input-box" placeholder="e.g. 01" required>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Title</label>
+                            <input type="text" name="title" class="form-input-box" placeholder="e.g. SEVEN CHALLENGES - ONE FINISH" required>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Date & Time</label>
+                            <input type="text" name="date_text" class="form-input-box" placeholder="e.g. SUNDAY, 23RD AUGUST">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Venue</label>
+                            <input type="text" name="venue" class="form-input-box" placeholder="e.g. EDEN GARDENS TURF, ANANTAPUR">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Challengers / Finishers Text</label>
+                            <input type="text" name="members" class="form-input-box" placeholder="e.g. 7 Finishes">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Collaborations / Partners</label>
+                            <input type="text" name="collaborations" class="form-input-box" placeholder="e.g. Eden Gardens Turf, Coco Fit, Vitamin Store Supplements.">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Tags (comma separated)</label>
+                            <input type="text" name="tags" class="form-input-box" placeholder="RUNNING, CHALLENGE, COMMUNITY">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Google Drive Photos Link</label>
+                            <input type="url" name="google_drive_link" class="form-input-box" placeholder="https://drive.google.com/...">
+                        </div>
+                    </div>
+                    <div class="form-group" style="margin-bottom: 20px;">
+                        <label class="form-label">Description / Recap</label>
+                        <textarea name="description" class="form-input-box" rows="3" placeholder="Brief recap of what happened in this past event..."></textarea>
+                    </div>
+                    <button type="submit" class="btn-action">Create Past Event</button>
+                </form>
+            </div>
+        </div>
+    </main>
+
+    <!-- Modal: Edit Past Event -->
+    <div id="editEventModal" class="modal-backdrop" onclick="handleBackdropClick(event, 'editEventModal')">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h3 class="modal-title">Edit Past Event Details</h3>
+                <button type="button" class="modal-close" onclick="closeModal('editEventModal')">&times;</button>
+            </div>
+            <form id="editEventForm" action="" method="POST">
+                <input type="hidden" name="auth" value="1">
+                <input type="hidden" name="from" value="past-events">
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label class="form-label">Event Number</label>
+                        <input type="text" id="editEventNumber" name="event_number" class="form-input-box" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Title</label>
+                        <input type="text" id="editEventTitle" name="title" class="form-input-box" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Date & Time</label>
+                        <input type="text" id="editEventDate" name="date_text" class="form-input-box" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Venue</label>
+                        <input type="text" id="editEventVenue" name="venue" class="form-input-box" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Challengers / Finishers Text</label>
+                        <input type="text" id="editEventMembers" name="members" class="form-input-box" placeholder="e.g. 7 Finishes">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Finishers / Collabs Text</label>
+                        <input type="text" id="editEventCollaborations" name="collaborations" class="form-input-box" placeholder="e.g. Eden Gardens Turf, Coco Fit">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Tags (comma separated)</label>
+                        <input type="text" id="editEventTags" name="tags" class="form-input-box">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Google Drive Photos Link</label>
+                        <input type="url" id="editEventDrive" name="google_drive_link" class="form-input-box">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Visibility in Archive</label>
+                        <select id="editEventIsActive" name="is_active" class="form-input-box">
+                            <option value="true">Active (Visible on /past-events)</option>
+                            <option value="false">Hidden (Draft)</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Event Role</label>
+                        <select id="editEventIsCurrent" name="is_current" class="form-input-box">
+                            <option value="false">Past Event (Archive)</option>
+                            <option value="true">⚡ Make Current Event (Homepage)</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Description / Recap</label>
+                    <textarea id="editEventDescription" name="description" class="form-input-box" rows="3"></textarea>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn-modal-cancel" onclick="closeModal('editEventModal')">Cancel</button>
+                    <button type="submit" class="btn-action">Save Changes</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal: Delete Confirmation -->
+    <div id="deleteModal" class="modal-backdrop" onclick="handleBackdropClick(event, 'deleteModal')">
+        <div class="modal-card" style="max-width: 440px; text-align: center;">
+            <h3 style="font-size: 18px; font-weight: 800; color: #ef4444; margin-bottom: 12px;">Confirm Deletion</h3>
+            <p id="deleteModalText" style="font-size: 14px; color: #aaaaaa; margin-bottom: 24px; line-height: 1.5;">Are you sure you want to delete this event?</p>
+            <div style="display: flex; justify-content: center; gap: 12px;">
+                <button type="button" class="btn-modal-cancel" onclick="closeModal('deleteModal')">Cancel</button>
+                <button type="button" id="confirmDeleteBtn" class="btn-table-delete" style="padding: 10px 24px;">Yes, Delete</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function openEditPastEvent(btn) {
+            const ds = btn.dataset;
+            document.getElementById('editEventForm').action = '/admin/events/' + ds.id + '/edit?auth=1';
+            document.getElementById('editEventNumber').value = ds.number || '';
+            document.getElementById('editEventTitle').value = ds.title || '';
+            document.getElementById('editEventDate').value = ds.date || '';
+            document.getElementById('editEventVenue').value = ds.venue || '';
+            document.getElementById('editEventTags').value = ds.tags || '';
+            document.getElementById('editEventDrive').value = ds.drive || '';
+            document.getElementById('editEventMembers').value = ds.members || '';
+            document.getElementById('editEventCollaborations').value = ds.collabs || '';
+            document.getElementById('editEventDescription').value = ds.desc || '';
+            document.getElementById('editEventIsActive').value = ds.active === 'true' ? 'true' : 'false';
+            document.getElementById('editEventIsCurrent').value = 'false';
+            document.getElementById('editEventModal').classList.add('open');
+        }
+
+        let pendingDeleteFormId = null;
+        function triggerEventDelete(btn) {
+            pendingDeleteFormId = btn.dataset.formId;
+            document.getElementById('deleteModalText').textContent = 'Are you sure you want to delete "' + btn.dataset.title + '" from the archive?';
+            document.getElementById('deleteModal').classList.add('open');
+        }
+
+        document.getElementById('confirmDeleteBtn').addEventListener('click', function() {
+            if (pendingDeleteFormId) {
+                document.getElementById(pendingDeleteFormId).submit();
+            }
+        });
+
+        function closeModal(id) {
+            document.getElementById(id).classList.remove('open');
+        }
+
+        function handleBackdropClick(e, id) {
+            if (e.target === document.getElementById(id)) {
+                closeModal(id);
+            }
+        }
+    </script>
+</body>
+</html>

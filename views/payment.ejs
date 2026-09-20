@@ -34,29 +34,11 @@
         </div>
 
         <!-- Pay Now Button (Razorpay Checkout) -->
-        <% if (is_razorpay_configured) { %>
         <button type="button" class="confirm-btn" id="payNowBtn" onclick="openRazorpay()"
             style="background: #ffffff; color: #000000; font-size: 16px; padding: 20px 24px; margin-bottom: 20px; border-radius: 6px; cursor: pointer; border: 1px solid #ffffff; width: 100%; font-weight: 800; letter-spacing: 1px; transition: all 0.2s ease;">
             ⚡ PAY ₹<%= settings.registration_fee %> NOW
         </button>
-        <p class="qr-hint" style="margin-bottom: 20px; color: #888888;">Supports GPay, PhonePe, Paytm, UPI QR, Cards & Netbanking</p>
-        <% } else { %>
-        <p class="payment-note" style="color: #cccccc; border: 1px solid #333333; background: #111111; padding: 14px; border-radius: 6px; margin-bottom: 20px; font-size: 14px;">
-            ⚠️ Razorpay test mode active. You can test payment below.
-        </p>
-        <% } %>
-
-        <!-- UPI / Instant Demo Confirmation -->
-        <div style="margin-top: 15px; margin-bottom: 30px; display: flex; flex-direction: column; gap: 12px;">
-            <% if (upi_url) { %>
-            <a href="<%= upi_url %>" class="upi-pay-link" style="display: inline-block; padding: 16px 20px; background: #000000; border: 1px solid #ffffff; color: #ffffff; border-radius: 6px; font-size: 14px; font-weight: 700; text-decoration: none; text-align: center; transition: all 0.2s ease;">
-                📱 Open UPI App Directly (<%= settings.upi_id %>)
-            </a>
-            <% } %>
-            <button type="button" onclick="simulateSuccessPayment()" style="background: transparent; border: 1px dashed #444444; color: #ffffff; padding: 14px; border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.2s ease;">
-                🧪 Simulate Test Payment Confirmation (Instant Demo)
-            </button>
-        </div>
+        <p class="qr-hint" style="margin-bottom: 30px; color: #888888;">Supports UPI (GPay, PhonePe, Paytm), Cards, Netbanking & Wallets</p>
 
         <!-- Hidden Data -->
         <input type="hidden" id="txId" value="<%= transaction_id %>">
@@ -104,100 +86,134 @@
             startPaymentPolling();
         });
 
-        function openRazorpay() {
+        async function openRazorpay() {
+            const payBtn = document.getElementById('payNowBtn');
+            const originalBtnText = payBtn ? payBtn.innerHTML : '';
+            const statusText = document.getElementById('statusText');
+
             const keyId = document.getElementById('rzpKeyId').value;
-            const orderId = document.getElementById('rzpOrderId').value;
             const amount = document.getElementById('rzpAmount').value;
             const email = document.getElementById('memberEmail').value;
             const name = document.getElementById('memberName').value;
             const phone = document.getElementById('memberPhone').value;
 
-            if (!keyId || keyId === 'rzp_test_52clubKeyId') {
-                simulateSuccessPayment();
-                return;
+            if (payBtn) {
+                payBtn.disabled = true;
+                payBtn.innerHTML = '⏳ INITIALIZING CHECKOUT...';
             }
-
-            const options = {
-                "key": keyId,
-                "amount": amount,
-                "currency": "INR",
-                "name": "The 52 Club",
-                "description": "Club Registration Fee",
-                "handler": function (response) {
-                    document.getElementById('statusText').textContent = 'Verifying payment...';
-
-                    fetch('/api/payment/verify/', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            razorpay_order_id: response.razorpay_order_id,
-                            razorpay_payment_id: response.razorpay_payment_id,
-                            razorpay_signature: response.razorpay_signature,
-                            transaction_id: txId
-                        })
-                    })
-                    .then(res => res.json())
-                    .then(data => {
-                        if (data.success) {
-                            triggerSuccessPopup();
-                        } else {
-                            alert('Verification failed: ' + (data.error || 'Unknown error'));
-                        }
-                    })
-                    .catch(err => {
-                        console.error('Verify error:', err);
-                        triggerSuccessPopup();
-                    });
-                },
-                "prefill": {
-                    "name": name,
-                    "email": email,
-                    "contact": phone
-                },
-                "theme": {
-                    "color": "#000000"
-                },
-                "modal": {
-                    "ondismiss": function () {
-                        console.log('Payment modal closed by user');
-                    }
-                }
-            };
-
-            if (orderId) {
-                options.order_id = orderId;
-            }
+            if (statusText) statusText.textContent = 'Generating Razorpay order...';
 
             try {
-                const rzp = new Razorpay(options);
-                rzp.on('payment.failed', function (response) {
-                    alert("Payment failed: " + (response.error ? response.error.description : 'Payment error'));
+                // STEP 1: Call Backend to Create Order
+                const createRes = await fetch('/api/create-order', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        amount: parseInt(amount, 10),
+                        currency: 'INR',
+                        receipt: 'rcpt_' + memberId + '_' + Date.now(),
+                        transaction_id: txId,
+                        member_id: memberId
+                    })
                 });
+
+                const orderData = await createRes.json();
+                if (!createRes.ok || !orderData.order_id) {
+                    throw new Error(orderData.error || 'Failed to create payment order');
+                }
+
+                if (statusText) statusText.textContent = 'Awaiting payment authorization...';
+
+                // STEP 2: Configure Razorpay Standard Checkout
+                const options = {
+                    "key": orderData.key_id || keyId,
+                    "amount": orderData.amount,
+                    "currency": orderData.currency || "INR",
+                    "name": "The 52 Club",
+                    "description": "Club Registration Fee",
+                    "order_id": orderData.order_id,
+                    "handler": async function (response) {
+                        if (statusText) statusText.textContent = 'Verifying payment signature...';
+
+                        try {
+                            // STEP 3: Send razorpay_payment_id, razorpay_order_id, razorpay_signature to verify endpoint
+                            const verifyRes = await fetch('/api/verify-payment', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                    razorpay_order_id: response.razorpay_order_id,
+                                    razorpay_payment_id: response.razorpay_payment_id,
+                                    razorpay_signature: response.razorpay_signature,
+                                    transaction_id: txId,
+                                    member_id: memberId
+                                })
+                            });
+
+                            const verifyData = await verifyRes.json();
+                            if (verifyRes.ok && verifyData.success) {
+                                triggerSuccessPopup();
+                            } else {
+                                const errMsg = verifyData.error || 'Signature verification failed';
+                                alert('Verification failed: ' + errMsg);
+                                if (statusText) statusText.textContent = 'Verification error: ' + errMsg;
+                                if (payBtn) {
+                                    payBtn.disabled = false;
+                                    payBtn.innerHTML = originalBtnText;
+                                }
+                            }
+                        } catch (verifyErr) {
+                            console.error('Verify error:', verifyErr);
+                            alert('Network error verifying payment. Please refresh or contact support.');
+                            if (payBtn) {
+                                payBtn.disabled = false;
+                                payBtn.innerHTML = originalBtnText;
+                            }
+                        }
+                    },
+                    "prefill": {
+                        "name": name,
+                        "email": email,
+                        "contact": phone
+                    },
+                    "theme": {
+                        "color": "#000000"
+                    },
+                    "modal": {
+                        "ondismiss": function () {
+                            console.log('Payment modal dismissed by user');
+                            if (statusText) statusText.textContent = 'Payment cancelled by user. Click below to retry.';
+                            if (payBtn) {
+                                payBtn.disabled = false;
+                                payBtn.innerHTML = originalBtnText;
+                            }
+                        }
+                    }
+                };
+
+                const rzp = new Razorpay(options);
+
+                // Handle payment.failed event
+                rzp.on('payment.failed', function (failedResponse) {
+                    console.error('Payment failed:', failedResponse.error);
+                    const desc = failedResponse.error ? failedResponse.error.description : 'Payment could not be completed';
+                    alert('Payment Failed: ' + desc);
+                    if (statusText) statusText.textContent = 'Payment failed: ' + desc;
+                    if (payBtn) {
+                        payBtn.disabled = false;
+                        payBtn.innerHTML = originalBtnText;
+                    }
+                });
+
                 rzp.open();
             } catch (err) {
-                console.warn('Razorpay open failed, falling back to simulated verification:', err);
-                simulateSuccessPayment();
+                console.error('Checkout error:', err);
+                alert('Unable to initialize checkout: ' + err.message);
+                if (statusText) statusText.textContent = 'Checkout error: ' + err.message;
+                if (payBtn) {
+                    payBtn.disabled = false;
+                    payBtn.innerHTML = originalBtnText;
+                }
             }
-        }
-
-        function simulateSuccessPayment() {
-            document.getElementById('statusText').textContent = 'Confirming payment...';
-            fetch('/api/payment/verify/', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    transaction_id: txId,
-                    razorpay_payment_id: 'pay_simulated_' + Math.random().toString(36).substring(2, 9),
-                    razorpay_order_id: document.getElementById('rzpOrderId').value || 'order_simulated'
-                })
-            })
-            .then(res => res.json())
-            .then(data => {
-                triggerSuccessPopup();
-            })
-            .catch(err => {
-                triggerSuccessPopup();
-            });
         }
 
         function startPaymentPolling() {

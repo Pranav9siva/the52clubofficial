@@ -1,0 +1,172 @@
+<%- include('partials/header', {
+    title: 'Past Events & Challenges | The 52 Club',
+    extraCss: `
+    <style>
+        .past-events-page {
+            padding: 140px 24px 80px;
+            max-width: 1100px;
+            margin: 0 auto;
+            min-height: 80vh;
+        }
+        .past-events-header {
+            margin-bottom: 50px;
+        }
+        .back-nav-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            color: #888888;
+            text-decoration: none;
+            font-size: 12px;
+            font-weight: 700;
+            letter-spacing: 1.5px;
+            text-transform: uppercase;
+            margin-bottom: 24px;
+            transition: color 0.2s ease;
+        }
+        .back-nav-link:hover {
+            color: #ffffff;
+        }
+        .past-events-title {
+            font-size: clamp(32px, 5vw, 54px);
+            font-weight: 900;
+            line-height: 1.1;
+            letter-spacing: -1px;
+            margin-bottom: 16px;
+        }
+        .past-events-title span {
+            color: #888888;
+        }
+        .past-events-subtitle {
+            font-size: 15px;
+            color: #aaaaaa;
+            max-width: 600px;
+            line-height: 1.6;
+        }
+        .past-events-empty {
+            text-align: center;
+            padding: 80px 24px;
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px dashed rgba(255, 255, 255, 0.15);
+            border-radius: 12px;
+        }
+        .current-event-banner-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            padding: 14px 28px;
+            background: #ffffff;
+            color: #000000;
+            border-radius: 6px;
+            font-weight: 800;
+            font-size: 13px;
+            letter-spacing: 1px;
+            text-decoration: none;
+            margin-top: 24px;
+            transition: all 0.2s ease;
+        }
+        .current-event-banner-link:hover {
+            background: #e0e0e0;
+            transform: translateY(-2px);
+        }
+    </style>
+    `
+}) %>
+
+<main class="past-events-page">
+    <div class="past-events-header">
+        <a href="/#events" class="back-nav-link">
+            <span>←</span> BACK TO CURRENT SESSION
+        </a>
+        <p class="section-label" style="margin-bottom: 8px;">THE 52 CLUB ARCHIVE</p>
+        <h1 class="past-events-title">PAST SESSIONS &<br><span>CHALLENGERS</span></h1>
+        <p class="past-events-subtitle">
+            Relive every finish line, challenger milestone, and training challenge conquered by The 52 Club community.
+        </p>
+    </div>
+
+    <div class="events-grid-v2">
+        <% if (typeof past_events !== 'undefined' && past_events.length > 0) { %>
+            <% past_events.forEach(function(event) { %>
+            <div class="event-card-v2" id="event-<%= event.id %>">
+                <!-- Header: Watermark Number & Tags -->
+                <div class="event-card-top">
+                    <span class="event-num-watermark"><%= event.event_number || '01' %></span>
+                    <div class="event-tags-container">
+                        <span class="event-tag-badge" style="background: rgba(255, 255, 255, 0.1); border-color: rgba(255, 255, 255, 0.2); color: #ffffff;">COMPLETED</span>
+                        <% const tags = (event.tags || 'RUNNING, CHALLENGE, COMMUNITY').split(','); %>
+                        <% tags.forEach(function(tag) { %>
+                            <% if (tag.trim()) { %>
+                            <span class="event-tag-badge"><%= tag.trim() %></span>
+                            <% } %>
+                        <% }); %>
+                    </div>
+                </div>
+
+                <!-- Title & Description -->
+                <div class="event-card-body">
+                    <h3 class="event-card-title">🏁 <%= event.title %></h3>
+                    <% if (event.description) { %>
+                    <p class="event-card-desc"><%= event.description %></p>
+                    <% } %>
+                </div>
+
+                <!-- Banner Image if available -->
+                <% if (event.image) { %>
+                <div class="event-card-banner">
+                    <img src="<%= event.image %>" alt="<%= event.title %>">
+                </div>
+                <% } %>
+
+                <!-- Meta Grid: Venue, Date, Members/Challengers, Collaborations -->
+                <div class="event-meta-grid">
+                    <div class="meta-box">
+                        <span class="meta-label">VENUE</span>
+                        <p class="meta-val">📍 <%= event.venue %></p>
+                    </div>
+                    <div class="meta-box">
+                        <span class="meta-label">DATE</span>
+                        <p class="meta-val">📅 <%= event.date_text %></p>
+                    </div>
+                    <% if (event.Challengers || event.members) { %>
+                    <div class="meta-box">
+                        <span class="meta-label"><%= event.Challengers ? 'CHALLENGERS' : 'MEMBERS' %></span>
+                        <p class="meta-val">👥 <%= event.Challengers || event.members %></p>
+                    </div>
+                    <% } %>
+                    <% if (event.collaborations) { %>
+                    <div class="meta-box">
+                        <span class="meta-label">COLLABORATIONS</span>
+                        <p class="meta-val">🔥 <%= event.collaborations %></p>
+                    </div>
+                    <% } %>
+                </div>
+
+                <!-- Actions: Google Drive Link -->
+                <% if (event.google_drive_link) { %>
+                <div class="event-card-footer">
+                    <a href="<%= event.google_drive_link %>" target="_blank" rel="noopener" class="drive-btn">
+                        📁 VIEW PHOTOS (DRIVE)
+                    </a>
+                </div>
+                <% } %>
+            </div>
+            <% }); %>
+        <% } else { %>
+            <div class="past-events-empty">
+                <p style="font-size: 16px; font-weight: 800; color: #ffffff; letter-spacing: 1.5px; margin-bottom: 8px;">NO PAST SESSIONS ARCHIVED YET</p>
+                <p style="font-size: 13px; color: #888888; max-width: 460px; margin: 0 auto;">Check out our upcoming challenge and be part of the next session!</p>
+                <a href="/#events" class="current-event-banner-link">VIEW CURRENT SESSION</a>
+            </div>
+        <% } %>
+    </div>
+
+    <!-- Bottom return action -->
+    <div style="margin-top: 60px; text-align: center; border-top: 1px solid #222222; padding-top: 40px;">
+        <a href="/#events" class="current-event-banner-link">
+            <span>⚡ EXPLORE CURRENT CHALLENGE</span>
+        </a>
+    </div>
+</main>
+
+<%- include('partials/footer') %>

@@ -698,7 +698,8 @@
         <!-- Navigation Tabs -->
         <div class="admin-nav-tabs">
             <button class="tab-btn active" onclick="switchTab('tab-members')">Registrations (<%= stats.totalMembers %>)</button>
-            <button class="tab-btn" onclick="switchTab('tab-events')">Events & Sessions (<%= events.length %>)</button>
+            <button class="tab-btn" onclick="switchTab('tab-events')">Current Event</button>
+            <a href="/admin/past-events?auth=1" class="tab-btn" style="text-decoration: none; color: inherit; display: inline-flex; align-items: center; gap: 6px;">Past Events (<%= (typeof past_events !== 'undefined' ? past_events.length : 0) %>) ➔</a>
             <button class="tab-btn" onclick="switchTab('tab-collaborations')">Collaborations (<%= (typeof collaborators !== 'undefined' ? collaborators.length : 0) %>)</button>
             <button class="tab-btn" onclick="switchTab('tab-gallery')">Gallery</button>
             <button class="tab-btn" onclick="switchTab('tab-settings')">Pricing & Payments</button>
@@ -805,108 +806,130 @@
             </div>
         </div>
 
-        <!-- TAB 2: EVENTS -->
+        <!-- TAB 2: CURRENT EVENT ONLY -->
         <div id="tab-events" class="tab-content">
             <div class="section-card">
                 <div class="section-header">
-                    <h2 class="section-title">Manage Events & Sessions</h2>
-                </div>
-
-                <div class="events-grid" style="margin-bottom: 32px;">
-                    <% events.forEach(function(ev) { %>
-                    <div class="event-admin-card">
-                        <div>
-                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
-                                <span style="font-size: 11px; color: var(--text-secondary); font-weight: 700;">EVENT <%= ev.event_number %></span>
-                                <span class="status-badge <%= ev.is_active ? 'paid' : 'pending' %>" style="font-size: 10px; padding: 2px 8px;">
-                                    <%= ev.is_active ? 'ACTIVE' : 'HIDDEN' %>
-                                </span>
-                            </div>
-                            <h3 class="event-admin-title"><%= ev.title %></h3>
-                            <p class="event-admin-detail"><strong>Date:</strong> <%= ev.date_text %></p>
-                            <p class="event-admin-detail"><strong>Venue:</strong> <%= ev.venue %></p>
-                            <p class="event-admin-detail"><strong>Members:</strong> <%= ev.members || '52 MEMBERS' %></p>
-                            <% if (ev.collaborations) { %>
-                                <p class="event-admin-detail"><strong>Finishers / Collabs:</strong> <%= ev.collaborations %></p>
-                            <% } %>
-                            <% if (ev.tags) { %>
-                                <p class="event-admin-detail"><strong>Tags:</strong> <%= ev.tags %></p>
-                            <% } %>
-                            <p class="event-admin-detail"><strong>Drive Link:</strong> <a href="<%= ev.google_drive_link %>" target="_blank" style="color: #60a5fa;"><%= ev.google_drive_link || 'None' %></a></p>
-                        </div>
-                        <div style="margin-top: 16px; display: flex; gap: 8px; flex-wrap: wrap;">
-                            <button type="button" class="btn-table-edit"
-                                data-id="<%= ev.id %>"
-                                data-number="<%= ev.event_number || '' %>"
-                                data-title="<%= ev.title || '' %>"
-                                data-date="<%= ev.date_text || '' %>"
-                                data-venue="<%= ev.venue || '' %>"
-                                data-tags="<%= ev.tags || '' %>"
-                                data-drive="<%= ev.google_drive_link || '' %>"
-                                data-members="<%= ev.members || '52 MEMBERS' %>"
-                                data-collabs="<%= ev.collaborations || '' %>"
-                                data-desc="<%= ev.description || '' %>"
-                                data-active="<%= ev.is_active ? 'true' : 'false' %>"
-                                onclick="openEditEvent(this)">Edit</button>
-                            <form action="/admin/events/<%= ev.id %>/toggle?auth=1" method="POST" style="display: inline;">
-                                <input type="hidden" name="auth" value="1">
-                                <button type="submit" class="btn-table-toggle"><%= ev.is_active ? 'Deactivate' : 'Activate' %></button>
-                            </form>
-                            <form id="delete-event-<%= ev.id %>" action="/admin/events/<%= ev.id %>/delete?auth=1" method="POST" style="display: inline;">
-                                <input type="hidden" name="auth" value="1">
-                                <button type="button" class="btn-table-delete"
-                                    data-form-id="delete-event-<%= ev.id %>"
-                                    data-title="<%= ev.title || 'Event #' + ev.event_number %>"
-                                    onclick="triggerEventDelete(this)">Delete</button>
-                            </form>
-                        </div>
+                    <div>
+                        <h2 class="section-title">Current Event & Session</h2>
+                        <p class="section-subtitle">
+                            Only the current event is displayed on the main website homepage. Edit its details directly below.
+                        </p>
                     </div>
-                    <% }); %>
+                    <% if (typeof current_event !== 'undefined' && current_event) { %>
+                    <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                        <span class="status-badge paid" style="font-size: 11px; padding: 4px 10px;">
+                            ● ACTIVE HOMEPAGE EVENT
+                        </span>
+                        <a href="/#events" target="_blank" class="btn-table-edit" style="text-decoration: none;">
+                            Preview on Home ↗
+                        </a>
+                    </div>
+                    <% } %>
                 </div>
 
-                <h3 style="font-size: 16px; font-weight: 800; margin-bottom: 16px; text-transform: uppercase;">Add New Event</h3>
-                <form action="/admin/events/add?auth=1" method="POST">
+                <% const cur = (typeof current_event !== 'undefined' && current_event) ? current_event : null; %>
+                <% if (cur) { %>
+                <form action="/admin/events/<%= cur.id %>/edit?auth=1" method="POST">
                     <input type="hidden" name="auth" value="1">
-                    <div class="form-grid">
-                        <div class="form-group">
-                            <label class="form-label">Event Number</label>
-                            <input type="text" name="event_number" class="form-input-box" placeholder="e.g. 02" required>
+                    <input type="hidden" name="is_current" value="true">
+                    
+                    <div style="background: rgba(255, 255, 255, 0.02); border: 1px solid var(--border-color); border-radius: 8px; padding: 22px; margin-bottom: 24px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; border-bottom: 1px solid var(--border-color); padding-bottom: 12px;">
+                            <span style="font-size: 12px; font-weight: 800; letter-spacing: 1px; color: var(--text-secondary);">
+                                EDITING EVENT #<%= cur.event_number || '02' %>: <%= cur.title %>
+                            </span>
+                            <span style="font-size: 11px; color: #10b981; font-weight: 700; background: rgba(16,185,129,0.1); padding: 2px 8px; border-radius: 4px;">
+                                HOMEPAGE CURRENT
+                            </span>
                         </div>
-                        <div class="form-group">
-                            <label class="form-label">Title</label>
-                            <input type="text" name="title" class="form-input-box" placeholder="e.g. MORNING ENDURANCE CHALLENGE" required>
+
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label class="form-label">Event Number</label>
+                                <input type="text" name="event_number" class="form-input-box" value="<%= cur.event_number || '' %>" required>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Title / Challenge Name</label>
+                                <input type="text" name="title" class="form-input-box" value="<%= cur.title || '' %>" required>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Date & Time Text</label>
+                                <input type="text" name="date_text" class="form-input-box" value="<%= cur.date_text || '' %>" placeholder="e.g. SUNDAY, 30TH AUGUST · 6:00 AM">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Venue Location</label>
+                                <input type="text" name="venue" class="form-input-box" value="<%= cur.venue || '' %>" placeholder="e.g. STONES FITNESS STUDIO, ANANTAPUR.">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Members / Challengers Text</label>
+                                <input type="text" name="members" class="form-input-box" value="<%= cur.Challengers || cur.members || '' %>" placeholder="e.g. 52 MEMBERS or 7 Finishes">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Collaborations / Partners Text</label>
+                                <input type="text" name="collaborations" class="form-input-box" value="<%= cur.collaborations || '' %>" placeholder="e.g. BVR Karthik, Stones Fitness Studio, V Mr. Health.">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Tags (comma separated)</label>
+                                <input type="text" name="tags" class="form-input-box" value="<%= cur.tags || '' %>" placeholder="RUNNING, CHALLENGE">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Google Drive Photos Folder Link</label>
+                                <input type="url" name="google_drive_link" class="form-input-box" value="<%= cur.google_drive_link || '' %>" placeholder="https://drive.google.com/...">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Homepage Visibility</label>
+                                <select name="is_active" class="form-input-box">
+                                    <option value="true" <%= cur.is_active ? 'selected' : '' %>>Active (Visible on Homepage)</option>
+                                    <option value="false" <%= !cur.is_active ? 'selected' : '' %>>Hidden (Draft)</option>
+                                </select>
+                            </div>
                         </div>
-                        <div class="form-group">
-                            <label class="form-label">Date & Time</label>
-                            <input type="text" name="date_text" class="form-input-box" placeholder="e.g. SUNDAY, 30TH AUGUST · 6:00 AM">
+
+                        <div class="form-group" style="margin-top: 16px;">
+                            <label class="form-label">Description / Workout Brief</label>
+                            <textarea name="description" class="form-input-box" rows="3" placeholder="Brief overview of the upcoming session..."><%= cur.description || '' %></textarea>
                         </div>
-                        <div class="form-group">
-                            <label class="form-label">Venue</label>
-                            <input type="text" name="venue" class="form-input-box" placeholder="e.g. EDEN GARDENS TURF, ANANTAPUR">
-                        </div>
-                        <div class="form-group">
-                            <label class="form-label">Members Counter Text</label>
-                            <input type="text" name="members" class="form-input-box" placeholder="e.g. 52 MEMBERS">
-                        </div>
-                        <div class="form-group">
-                            <label class="form-label">Finishers / Collabs Text</label>
-                            <input type="text" name="collaborations" class="form-input-box" placeholder="e.g. 7 FINISHERS">
-                        </div>
-                        <div class="form-group">
-                            <label class="form-label">Tags</label>
-                            <input type="text" name="tags" class="form-input-box" placeholder="RUNNING, STRENGTH, COMMUNITY">
-                        </div>
-                        <div class="form-group">
-                            <label class="form-label">Google Drive Photos Link</label>
-                            <input type="url" name="google_drive_link" class="form-input-box" placeholder="https://drive.google.com/...">
+
+                        <div style="margin-top: 22px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px;">
+                            <button type="submit" class="btn-action">SAVE CURRENT EVENT CHANGES</button>
+                            <% if (cur.google_drive_link) { %>
+                                <a href="<%= cur.google_drive_link %>" target="_blank" class="btn-header-link">Open Drive Folder ↗</a>
+                            <% } %>
                         </div>
                     </div>
-                    <div class="form-group">
-                        <label class="form-label">Description</label>
-                        <textarea name="description" class="form-input-box" rows="3" placeholder="Brief overview of the session..."></textarea>
-                    </div>
-                    <button type="submit" class="btn-action">Create Event</button>
                 </form>
+                <% } else { %>
+                <div style="text-align: center; padding: 48px 24px; background: rgba(255,255,255,0.02); border: 1px dashed rgba(255,255,255,0.15); border-radius: 8px; margin-bottom: 24px;">
+                    <p style="font-size: 16px; font-weight: 800; color: #ffffff; margin-bottom: 8px;">NO CURRENT EVENT SET</p>
+                    <p style="font-size: 13px; color: var(--text-secondary); max-width: 480px; margin: 0 auto 18px;">
+                        Select an event from the Past Events page to make it the active current event on the home page.
+                    </p>
+                    <a href="/admin/past-events?auth=1" class="btn-action">Go to Past Events Page ➔</a>
+                </div>
+                <% } %>
+
+                <!-- Redirect Button to Separate Page for Past Events at End of Section -->
+                <div style="margin-top: 36px; padding: 24px; background: rgba(255, 255, 255, 0.02); border: 1px solid var(--border-color); border-radius: 10px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 16px;">
+                    <div>
+                        <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;">
+                            <span style="font-size: 18px;">📁</span>
+                            <h3 style="font-size: 16px; font-weight: 800; color: #ffffff; letter-spacing: -0.3px; margin: 0;">PAST EVENTS & ARCHIVE</h3>
+                        </div>
+                        <p style="font-size: 13px; color: var(--text-secondary); margin: 0; max-width: 580px; line-height: 1.5;">
+                            Manage past event archives, challenger finisher counts, sponsor collaborations, and photo folders on the dedicated Past Events page.
+                        </p>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+                        <a href="/past-events" target="_blank" class="btn-header-link" style="padding: 12px 18px; font-size: 12px;">
+                            Public Archive ↗
+                        </a>
+                        <a href="/admin/past-events?auth=1" id="managePastEventsRedirectBtn" class="btn-action" style="padding: 12px 22px; font-size: 13px; text-decoration: none;">
+                            <span>MANAGE PAST EVENTS PAGE</span>
+                            <span>➔</span>
+                        </a>
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -1051,13 +1074,13 @@
 
                         <div class="form-group">
                             <label class="form-label">UPI ID</label>
-                            <input type="text" name="upi_id" class="form-input-box" value="<%= settings.upi_id %>" required>
-                            <div class="form-hint">UPI VPA used to generate QR code and direct links.</div>
+                            <input type="text" name="upi_id" class="form-input-box" value="<%= settings.upi_id || '' %>">
+                            <div class="form-hint">UPI VPA used to generate QR code and direct links (optional).</div>
                         </div>
 
                         <div class="form-group">
                             <label class="form-label">UPI Display Name</label>
-                            <input type="text" name="upi_display_name" class="form-input-box" value="<%= settings.upi_display_name %>" required>
+                            <input type="text" name="upi_display_name" class="form-input-box" value="<%= settings.upi_display_name || '' %>">
                         </div>
 
                         <div class="form-group">

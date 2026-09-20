@@ -3,38 +3,42 @@
     {
       "id": 1,
       "event_number": "01",
-      "tags": "RUNNING, CHALLENGE, COMMUNITY",
       "title": "SEVEN CHALLENGES - ONE FINISH",
-      "description": "Seven challenges. One finish. The beginning of the 52 Club.",
-      "venue": "EDEN GARDENS TURF, ANANTAPUR",
       "date_text": "SUNDAY, 23RD AUGUST",
-      "members": "7 Finishers",
+      "venue": "EDEN GARDENS TURF, ANANTAPUR",
+      "tags": "RUNNING, CHALLENGE, COMMUNITY",
+      "members": "7 Finishes",
+      "Challengers": "7 Finishes",
       "collaborations": "Eden Gardens Turf, Coco Fit, Vitamin Store Supplements.",
       "google_drive_link": "https://drive.google.com/",
+      "description": "Seven challenges. One finish. The beginning of the 52 Club.",
       "image": "",
       "is_active": true,
+      "is_current": false,
       "order": 0
     },
     {
       "id": 2,
       "event_number": "02",
       "title": "RUSH TO WIN",
-      "date_text": "SUNDAY, 30RD AUGUST. 7:00 AM",
+      "date_text": "SUNDAY, 30TH AUGUST · 6:00 AM",
       "venue": "STONES FITNESS STUDIO, ANANTAPUR.",
       "tags": "RUNNING, CHALLENGE",
-      "google_drive_link": "",
-      "description": "",
       "members": "52 MEMBERS",
+      "Challengers": "52 MEMBERS",
       "collaborations": "BVR Karthik, Stones Fitness Studio, V Mr. Health.",
+      "google_drive_link": "",
+      "description": "High-intensity functional endurance workout with competitive timed challenges.",
       "image": "",
       "is_active": true,
+      "is_current": true,
       "order": 1
     }
   ],
   "gallery_images": [
     {
       "id": 1,
-      "image": "/media/gallery/pb.png",
+      "image": "",
       "caption": "The 52 Club Community",
       "is_visible": true,
       "order": 0
@@ -59,7 +63,7 @@
     },
     {
       "id": 3,
-      "name": "RedBull",
+      "name": "",
       "category": "ENERGY PARTNERS",
       "url": "",
       "order": 3,
@@ -67,7 +71,7 @@
     },
     {
       "id": 4,
-      "name": "Under Armour",
+      "name": "",
       "category": "APPAREL PARTNERS",
       "url": "",
       "order": 4,
@@ -78,11 +82,50 @@
     "registration_fee": 99,
     "upi_id": "8374446838@ybl",
     "upi_display_name": "The 52 Club",
-    "razorpay_key_id": "rzp_test_TYFk9bl92l1piQ",
-    "razorpay_key_secret": "1qd1JUM9BZcMOTAsnHsIG0qV",
+    "razorpay_key_id": "rzp_test_Te8KYr9Tzy9bXR",
+    "razorpay_key_secret": "ZswXhM89Av7i0CphoHm55Z9B",
     "webhook_secret": "1qd1JUM9BZcMOTAsnHsIG0qV"
   },
   "members": [
+    {
+      "id": 14,
+      "transaction_id": "3e1da3b7-8b1a-447e-bf28-e56d5326d3c7",
+      "full_name": "Verification User",
+      "email": "test@example.com",
+      "phone": "9876543210",
+      "experience": "beginner",
+      "message": "",
+      "payment_status": "pending",
+      "razorpay_order_id": null,
+      "razorpay_payment_id": null,
+      "registered_at": "2026-09-20T04:54:47.067Z"
+    },
+    {
+      "id": 13,
+      "transaction_id": "cfd966e9-ee9b-4f04-b70f-d102fe3009b2",
+      "full_name": "o",
+      "email": "sivapran2718@gmail.com",
+      "phone": "7989697129",
+      "experience": "beginner",
+      "message": "",
+      "payment_status": "pending",
+      "razorpay_order_id": null,
+      "razorpay_payment_id": null,
+      "registered_at": "2026-09-20T04:52:47.726Z"
+    },
+    {
+      "id": 12,
+      "transaction_id": "dbd865ab-db2a-4807-a5f9-0dfc4c281103",
+      "full_name": "Test Runner",
+      "email": "runner@the52club.com",
+      "phone": "9876543210",
+      "experience": "intermediate",
+      "message": "",
+      "payment_status": "pending",
+      "razorpay_order_id": null,
+      "razorpay_payment_id": null,
+      "registered_at": "2026-09-20T04:45:27.202Z"
+    },
     {
       "id": 2,
       "full_name": "Siva",
@@ -107,5 +150,5 @@
       "razorpay_order_id": "order_7260e29dea9f46"
     }
   ],
-  "nextMemberId": 11
+  "nextMemberId": 14
 }

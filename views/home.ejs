@@ -76,17 +76,18 @@
     <!-- Events -->
     <section id="events" class="events">
         <p class="section-label">WHAT'S HAPPENING</p>
-        <h2>WEEKLY<br><span>SESSIONS & EVENTS</span></h2>
+        <h2>CURRENT<br><span>SESSION & CHALLENGE</span></h2>
 
         <div class="events-grid-v2">
-            <% if (typeof events !== 'undefined' && events.length > 0) { %>
-                <% events.forEach(function(event) { %>
+            <% const current = (typeof current_event !== 'undefined' && current_event) ? current_event : ((typeof events !== 'undefined' && events.length > 0) ? events[events.length - 1] : null); %>
+            <% if (current) { %>
                 <div class="event-card-v2">
                     <!-- Header: Watermark Number & Tags -->
                     <div class="event-card-top">
-                        <span class="event-num-watermark"><%= event.event_number || '01' %></span>
+                        <span class="event-num-watermark"><%= current.event_number || '02' %></span>
                         <div class="event-tags-container">
-                            <% const tags = (event.tags || 'RUNNING, CHALLENGE, COMMUNITY').split(','); %>
+                            <span class="event-tag-badge" style="background: #ffffff; color: #000000; border-color: #ffffff; font-weight: 800;">⚡ CURRENT EVENT</span>
+                            <% const tags = (current.tags || 'RUNNING, CHALLENGE, COMMUNITY').split(','); %>
                             <% tags.forEach(function(tag) { %>
                                 <% if (tag.trim()) { %>
                                 <span class="event-tag-badge"><%= tag.trim() %></span>
@@ -97,57 +98,66 @@
 
                     <!-- Title & Description -->
                     <div class="event-card-body">
-                        <h3 class="event-card-title">🏁 <%= event.title %></h3>
-                        <% if (event.description) { %>
-                        <p class="event-card-desc"><%= event.description %></p>
+                        <h3 class="event-card-title">🏁 <%= current.title %></h3>
+                        <% if (current.description) { %>
+                        <p class="event-card-desc"><%= current.description %></p>
                         <% } %>
                     </div>
 
                     <!-- Banner Image if available -->
-                    <% if (event.image) { %>
+                    <% if (current.image) { %>
                     <div class="event-card-banner">
-                        <img src="<%= event.image %>" alt="<%= event.title %>">
+                        <img src="<%= current.image %>" alt="<%= current.title %>">
                     </div>
                     <% } %>
 
-                    <!-- Meta Grid: Venue, Date, Members, Collaborations -->
+                    <!-- Meta Grid: Venue, Date, Members/Challengers, Collaborations -->
                     <div class="event-meta-grid">
                         <div class="meta-box">
                             <span class="meta-label">VENUE</span>
-                            <p class="meta-val">📍 <%= event.venue %></p>
+                            <p class="meta-val">📍 <%= current.venue %></p>
                         </div>
                         <div class="meta-box">
                             <span class="meta-label">DATE</span>
-                            <p class="meta-val">📅 <%= event.date_text %></p>
+                            <p class="meta-val">📅 <%= current.date_text %></p>
                         </div>
+                        <% if (current.Challengers || current.members) { %>
                         <div class="meta-box">
-                            <span class="meta-label">MEMBERS</span>
-                            <p class="meta-val">👥 <%= event.members || '52 MEMBERS' %></p>
+                            <span class="meta-label"><%= current.Challengers ? 'CHALLENGERS' : 'MEMBERS' %></span>
+                            <p class="meta-val">👥 <%= current.Challengers || current.members %></p>
                         </div>
-                        <% if (event.collaborations) { %>
+                        <% } %>
+                        <% if (current.collaborations) { %>
                         <div class="meta-box">
                             <span class="meta-label">COLLABORATIONS</span>
-                            <p class="meta-val">🔥 <%= event.collaborations %></p>
+                            <p class="meta-val">🔥 <%= current.collaborations %></p>
                         </div>
                         <% } %>
                     </div>
 
                     <!-- Actions: Google Drive Link -->
-                    <% if (event.google_drive_link) { %>
+                    <% if (current.google_drive_link) { %>
                     <div class="event-card-footer">
-                        <a href="<%= event.google_drive_link %>" target="_blank" rel="noopener" class="drive-btn">
+                        <a href="<%= current.google_drive_link %>" target="_blank" rel="noopener" class="drive-btn">
                             📁 VIEW PHOTOS (DRIVE)
                         </a>
                     </div>
                     <% } %>
                 </div>
-                <% }); %>
             <% } else { %>
                 <div style="grid-column: 1 / -1; text-align: center; padding: 56px 24px; background: rgba(255,255,255,0.02); border: 1px dashed rgba(255,255,255,0.15); border-radius: 8px;">
                     <p style="font-size: 16px; font-weight: 800; color: #ffffff; letter-spacing: 1.5px; margin-bottom: 8px;">NO UPCOMING SESSIONS SCHEDULED</p>
                     <p style="font-size: 13px; color: #888888;">New training dates and challenges will be announced here and in the community group.</p>
                 </div>
             <% } %>
+        </div>
+
+        <!-- Button to redirect to separate page for past events -->
+        <div class="past-events-cta-container" style="text-align: center; margin-top: 48px;">
+            <a href="/past-events" id="viewPastEventsBtn" class="drive-btn" style="display: inline-flex; align-items: center; justify-content: center; gap: 12px; padding: 18px 36px; background: transparent; color: #ffffff; border: 1px solid rgba(255, 255, 255, 0.4); font-weight: 800; font-size: 13px; letter-spacing: 2px; text-transform: uppercase; border-radius: 6px; text-decoration: none; transition: all 0.2s ease;">
+                <span>VIEW PAST SESSIONS & FINISHERS</span>
+                <span style="font-size: 16px;">➔</span>
+            </a>
         </div>
     </section>
 
