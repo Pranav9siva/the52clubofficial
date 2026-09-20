@@ -4,9 +4,47 @@ import { fileURLToPath } from 'url';
 import crypto from 'crypto';
 import fs from 'fs';
 import Razorpay from 'razorpay';
+import multer from 'multer';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
+// Uploads Directories
+const UPLOADS_BASE_DIR = path.join(__dirname, 'public', 'uploads');
+const GALLERY_UPLOADS_DIR = path.join(UPLOADS_BASE_DIR, 'gallery');
+if (!fs.existsSync(GALLERY_UPLOADS_DIR)) {
+  fs.mkdirSync(GALLERY_UPLOADS_DIR, { recursive: true });
+}
+
+// Multer Storage Configuration for Gallery Photos
+const galleryStorage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    cb(null, GALLERY_UPLOADS_DIR);
+  },
+  filename: function (req, file, cb) {
+    const ext = (path.extname(file.originalname) || '.jpg').toLowerCase();
+    const cleanBase = path.basename(file.originalname, ext)
+      .replace(/[^a-zA-Z0-9_-]/g, '_')
+      .slice(0, 30);
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E6);
+    cb(null, `gallery-${cleanBase}-${uniqueSuffix}${ext}`);
+  }
+});
+
+const galleryFileFilter = (req, file, cb) => {
+  const allowed = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/avif'];
+  if (allowed.includes(file.mimetype) || (file.mimetype && file.mimetype.startsWith('image/'))) {
+    cb(null, true);
+  } else {
+    cb(new Error('Only image files (JPEG, PNG, WEBP, GIF, AVIF) are supported.'));
+  }
+};
+
+const uploadGallery = multer({
+  storage: galleryStorage,
+  limits: { fileSize: 15 * 1024 * 1024 }, // 15MB max per image
+  fileFilter: galleryFileFilter
+});
 
 // Load environment variables from .env if present
 const envFilePath = path.join(__dirname, '.env');
@@ -49,6 +87,7 @@ app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 app.use('/static/club', express.static(path.join(__dirname, 'public/static/club')));
 app.use('/media', express.static(path.join(__dirname, 'public/media')));
+app.use('/uploads', express.static(UPLOADS_BASE_DIR));
 
 // ─────────────────────────────────────────────
 // Persistent File-Based Database (data/database.json)
@@ -164,12 +203,12 @@ const defaultSettings = {
 };
 
 let settings = Object.assign({}, defaultSettings, dbData.settings || {});
-// Only fallback to process.env if not already set in database.json
-if (!settings.razorpay_key_id && process.env.RAZORPAY_KEY_ID) settings.razorpay_key_id = process.env.RAZORPAY_KEY_ID.trim();
-if (!settings.razorpay_key_secret && process.env.RAZORPAY_KEY_SECRET) settings.razorpay_key_secret = process.env.RAZORPAY_KEY_SECRET.trim();
-if (!settings.upi_id && process.env.UPI_ID) settings.upi_id = process.env.UPI_ID.trim();
-if (!settings.upi_display_name && process.env.UPI_DISPLAY_NAME) settings.upi_display_name = process.env.UPI_DISPLAY_NAME.trim();
-if (!settings.webhook_secret && process.env.WEBHOOK_SECRET) settings.webhook_secret = process.env.WEBHOOK_SECRET.trim();
+// Synchronize with process.env if available
+if (process.env.RAZORPAY_KEY_ID) settings.razorpay_key_id = process.env.RAZORPAY_KEY_ID.trim();
+if (process.env.RAZORPAY_KEY_SECRET) settings.razorpay_key_secret = process.env.RAZORPAY_KEY_SECRET.trim();
+if (process.env.UPI_ID) settings.upi_id = process.env.UPI_ID.trim();
+if (process.env.UPI_DISPLAY_NAME) settings.upi_display_name = process.env.UPI_DISPLAY_NAME.trim();
+if (process.env.WEBHOOK_SECRET) settings.webhook_secret = process.env.WEBHOOK_SECRET.trim();
 
 function getRazorpayClient() {
   const keyId = (process.env.RAZORPAY_KEY_ID || settings.razorpay_key_id || '').trim();
@@ -352,7 +391,7 @@ app.get(['/', '/home'], (req, res) => {
   const activeEvents = events.filter(e => e.is_active);
   const currentEvent = getCurrentEvent();
   const pastEvents = getPastEvents();
-  const visibleGallery = gallery_images.filter(g => g.is_visible);
+  const visibleGallery = gallery_images.filter(g => g.is_visible && g.image && String(g.image).trim() !== '');
   const footerGrouped = getGroupedCollaborators();
 
   res.render('home', {
@@ -582,7 +621,9 @@ app.get(['/admin', '/admin/'], requireAdmin, (req, res) => {
       pendingCount,
       totalRevenue
     },
-    success: req.query.success || null
+    success: req.query.success || null,
+    error: req.query.error || null,
+    active_tab: req.query.tab || null
   });
 });
 
@@ -841,22 +882,72 @@ app.post('/admin/collaborators/:id/toggle', requireAdmin, (req, res) => {
   res.redirect('/admin?auth=1&tab=collaborators&success=Collaborator+status+updated');
 });
 
-// Gallery Add, Toggle & Delete
-app.post('/admin/gallery/add', requireAdmin, (req, res) => {
+// Gallery Upload, Edit, Toggle & Delete
+const handleGalleryUpload = (req, res) => {
   checkAndReloadDatabase();
-  const { image, caption } = req.body;
-  if (image) {
-    const newId = gallery_images.length > 0 ? Math.max(...gallery_images.map(g => Number(g.id) || 0)) + 1 : 1;
-    gallery_images.push({
-      id: newId,
-      image: image.trim(),
-      caption: caption ? caption.trim() : '',
-      is_visible: true,
-      order: gallery_images.length
-    });
+  uploadGallery.array('photos', 20)(req, res, (err) => {
+    if (err) {
+      console.error('[Gallery Upload Error]:', err.message);
+      return res.redirect(`/admin?auth=1&tab=gallery&error=${encodeURIComponent(err.message || 'File upload failed')}`);
+    }
+
+    const uploadedFiles = req.files || [];
+    const sharedCaption = (req.body.caption || '').trim();
+
+    if (uploadedFiles.length > 0) {
+      for (const file of uploadedFiles) {
+        const newId = gallery_images.length > 0 ? Math.max(...gallery_images.map(g => Number(g.id) || 0)) + 1 : 1;
+        const publicUrl = `/uploads/gallery/${file.filename}`;
+        const autoCaption = file.originalname.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' ').trim();
+        const finalCaption = sharedCaption || autoCaption;
+
+        gallery_images.push({
+          id: newId,
+          image: publicUrl,
+          caption: finalCaption,
+          is_visible: true,
+          order: gallery_images.length
+        });
+      }
+      saveDatabase();
+      const count = uploadedFiles.length;
+      return res.redirect(`/admin?auth=1&tab=gallery&success=${encodeURIComponent(`Successfully uploaded ${count} photo${count > 1 ? 's' : ''}`)}`);
+    }
+
+    // Fallback if submitted with image URL or path
+    const fallbackImage = (req.body.image || '').trim();
+    if (fallbackImage) {
+      const newId = gallery_images.length > 0 ? Math.max(...gallery_images.map(g => Number(g.id) || 0)) + 1 : 1;
+      gallery_images.push({
+        id: newId,
+        image: fallbackImage,
+        caption: sharedCaption || 'The 52 Club Community',
+        is_visible: true,
+        order: gallery_images.length
+      });
+      saveDatabase();
+      return res.redirect('/admin?auth=1&tab=gallery&success=Gallery+photo+added+successfully');
+    }
+
+    return res.redirect('/admin?auth=1&tab=gallery&error=Please+select+at+least+one+photo+to+upload');
+  });
+};
+
+app.post('/admin/gallery/upload', requireAdmin, handleGalleryUpload);
+app.post('/admin/gallery/add', requireAdmin, handleGalleryUpload);
+
+app.post('/admin/gallery/:id/edit', requireAdmin, (req, res) => {
+  checkAndReloadDatabase();
+  const img = gallery_images.find(g => String(g.id) === String(req.params.id));
+  if (img) {
+    const { caption, order, is_visible } = req.body;
+    if (caption !== undefined) img.caption = caption.trim();
+    if (order !== undefined && !isNaN(Number(order))) img.order = Number(order);
+    if (is_visible !== undefined) img.is_visible = is_visible === 'true' || is_visible === 'on';
     saveDatabase();
+    return res.redirect('/admin?auth=1&tab=gallery&success=Gallery+photo+updated+successfully');
   }
-  res.redirect('/admin?auth=1&tab=gallery&success=Gallery+image+added');
+  res.redirect('/admin?auth=1&tab=gallery&error=Photo+not+found');
 });
 
 app.post('/admin/gallery/:id/toggle', requireAdmin, (req, res) => {
@@ -871,9 +962,26 @@ app.post('/admin/gallery/:id/toggle', requireAdmin, (req, res) => {
 
 app.post('/admin/gallery/:id/delete', requireAdmin, (req, res) => {
   checkAndReloadDatabase();
-  gallery_images = gallery_images.filter(g => String(g.id) !== String(req.params.id));
-  saveDatabase();
-  res.redirect('/admin?auth=1&tab=gallery&success=Gallery+image+deleted');
+  const targetId = String(req.params.id);
+  const img = gallery_images.find(g => String(g.id) === targetId);
+  if (img) {
+    // If it is an uploaded file in /uploads/gallery, remove it from disk
+    if (img.image && img.image.startsWith('/uploads/gallery/')) {
+      const filename = path.basename(img.image);
+      const filePath = path.join(GALLERY_UPLOADS_DIR, filename);
+      try {
+        if (fs.existsSync(filePath)) {
+          fs.unlinkSync(filePath);
+        }
+      } catch (err) {
+        console.error('[Delete File Error]:', err.message);
+      }
+    }
+    gallery_images = gallery_images.filter(g => String(g.id) !== targetId);
+    saveDatabase();
+    return res.redirect('/admin?auth=1&tab=gallery&success=Gallery+photo+deleted+successfully');
+  }
+  res.redirect('/admin?auth=1&tab=gallery&error=Photo+not+found');
 });
 
 // Settings Update

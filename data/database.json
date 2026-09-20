@@ -38,7 +38,7 @@
   "gallery_images": [
     {
       "id": 1,
-      "image": "",
+      "image": "/media/gallery/pb.png",
       "caption": "The 52 Club Community",
       "is_visible": true,
       "order": 0
@@ -82,11 +82,24 @@
     "registration_fee": 99,
     "upi_id": "8374446838@ybl",
     "upi_display_name": "The 52 Club",
-    "razorpay_key_id": "rzp_test_Te8KYr9Tzy9bXR",
-    "razorpay_key_secret": "ZswXhM89Av7i0CphoHm55Z9B",
+    "razorpay_key_id": "rzp_live_TeC3u7QXXwwhgL",
+    "razorpay_key_secret": "z3a0zTpgz5kr1i6V5evvK6bl",
     "webhook_secret": "1qd1JUM9BZcMOTAsnHsIG0qV"
   },
   "members": [
+    {
+      "id": 15,
+      "transaction_id": "907363e9-06a9-4907-8f25-609713be6891",
+      "full_name": "Siva Pranav Kommasani",
+      "email": "sivapran2718@gmail.com",
+      "phone": "7989697129",
+      "experience": "beginner",
+      "message": "",
+      "payment_status": "pending",
+      "razorpay_order_id": "order_TeMifOUUMk4Ji7",
+      "razorpay_payment_id": null,
+      "registered_at": "2026-09-20T16:58:42.546Z"
+    },
     {
       "id": 14,
       "transaction_id": "3e1da3b7-8b1a-447e-bf28-e56d5326d3c7",
@@ -150,5 +163,5 @@
       "razorpay_order_id": "order_7260e29dea9f46"
     }
   ],
-  "nextMemberId": 14
+  "nextMemberId": 15
 }
